@@ -30,7 +30,7 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.clientsClaim();
+  clients.claim();
 });
 
 // Fetch Event: Serve from cache first, fall back to network
