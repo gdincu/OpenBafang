@@ -1,8 +1,9 @@
 const CACHE_NAME = 'bafang-tracker-v1';
 const ASSETS_TO_CACHE = [
   './index.html',
-  './style.css',
-  './app.js',
+  './css/style.css',
+  './js/app.js',
+  './js/bafang-protocol.js',
   './icon.png',
   './manifest.json'
 ];

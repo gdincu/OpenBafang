@@ -1,3 +1,5 @@
+import { decodeBafangPacket } from './bafang-protocol.js';
+
 let rideData = [];
 let currentLat = 0, currentLon = 0, currentAltitude = 0;
 let lastLoggedLat = null, lastLoggedLon = null;
@@ -133,18 +135,19 @@ function handleBikeData(event) {
     const buffer = new Uint8Array(event.target.value.buffer);
     const hexString = Array.from(buffer).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
 
-    const cmdId = buffer[2];
+    // Decode packet via external protocol module
+    const decoded = decodeBafangPacket(buffer);
 
-    if (cmdId === 0x4A) { currentPas = buffer[4]; document.getElementById('pasDisplay').innerText = currentPas; }
-    if (cmdId === 0x40) { currentLight = buffer[4] === 0x01 ? "ON" : "OFF"; document.getElementById('lightDisplay').innerText = currentLight; }
-    if (cmdId === 0x64) { currentBattery = buffer[4]; document.getElementById('battDisplay').innerText = `${currentBattery}%`; }
-    if (cmdId === 0x44) { currentSpeed = (((buffer[4] << 8) | buffer[5]) / 10).toFixed(1); document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`; }
-    if (cmdId === 0x47) { currentTrip = (((buffer[4] << 8) | buffer[5]) / 10).toFixed(1); document.getElementById('tripDisplay').innerText = `${currentTrip} km`; }
-    if (cmdId === 0x71) { currentRange = (buffer[4] << 8) | buffer[5]; document.getElementById('rangeDisplay').innerText = `${currentRange} km`; }
-    if (cmdId === 0xD3) { currentTorque = (buffer[4] << 8) | buffer[5]; document.getElementById('torqueDisplay').innerText = currentTorque; }
-    if (cmdId === 0x61) { currentVoltage = (((buffer[4] << 8) | buffer[5]) / 1000).toFixed(1); document.getElementById('voltDisplay').innerText = `${currentVoltage} V`; }
-    if (cmdId === 0x60) { currentTemp = (((buffer[4] << 8) | buffer[5]) / 10).toFixed(1); document.getElementById('tempDisplay').innerText = `${currentTemp} °C`; }
-    if (cmdId === 0x46) { currentOdo = (buffer[4] << 16) | (buffer[5] << 8) | buffer[6]; document.getElementById('odoDisplay').innerText = `${currentOdo} km`; }
+    if (decoded.type === 'pas') { currentPas = decoded.value; document.getElementById('pasDisplay').innerText = currentPas; }
+    if (decoded.type === 'light') { currentLight = decoded.value; document.getElementById('lightDisplay').innerText = currentLight; }
+    if (decoded.type === 'battery') { currentBattery = decoded.value; document.getElementById('battDisplay').innerText = `${currentBattery}%`; }
+    if (decoded.type === 'speed') { currentSpeed = decoded.value; document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`; }
+    if (decoded.type === 'trip') { currentTrip = decoded.value; document.getElementById('tripDisplay').innerText = `${currentTrip} km`; }
+    if (decoded.type === 'range') { currentRange = decoded.value; document.getElementById('rangeDisplay').innerText = `${currentRange} km`; }
+    if (decoded.type === 'torque') { currentTorque = decoded.value; document.getElementById('torqueDisplay').innerText = currentTorque; }
+    if (decoded.type === 'voltage') { currentVoltage = decoded.value; document.getElementById('voltDisplay').innerText = `${currentVoltage} V`; }
+    if (decoded.type === 'temp') { currentTemp = decoded.value; document.getElementById('tempDisplay').innerText = `${currentTemp} °C`; }
+    if (decoded.type === 'odo') { currentOdo = decoded.value; document.getElementById('odoDisplay').innerText = `${currentOdo} km`; }
 
     let logHexVal = "";
     const isHexEnabled = document.getElementById('toggleHex').checked;
