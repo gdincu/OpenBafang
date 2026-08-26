@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bafang Ride Tracker</title>
+    <title>OpenBafang</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
@@ -10,8 +10,27 @@
 </head>
 <body>
 
-    <h2>Bafang Ride Tracker</h2>
+    <h2>OpenBafang</h2>
     
+    <!-- Configuration Panel (Visible before connecting) -->
+    <div class="card" id="configCard">
+        <h4 style="margin: 0 0 10px 0;">Configure Log Metrics</h4>
+        <div class="config-grid">
+            <label><input type="checkbox" id="chk_timestamp" checked disabled> Timestamp</label>
+            <label><input type="checkbox" id="chk_latlon" checked disabled> Lat / Lon</label>
+            <label><input type="checkbox" id="chk_speed" checked> Speed</label>
+            <label><input type="checkbox" id="chk_odo" checked> Odometer</label>
+            <label><input type="checkbox" id="chk_battery" checked> Battery %</label>
+            <label><input type="checkbox" id="chk_temp" checked> Battery Temp</label>
+            <label><input type="checkbox" id="chk_pas"> PAS Level</label>
+            <label><input type="checkbox" id="chk_voltage"> Voltage</label>
+            <label><input type="checkbox" id="chk_range"> Est. Range</label>
+            <label><input type="checkbox" id="chk_trip"> Trip Dist.</label>
+            <label><input type="checkbox" id="chk_torque"> Torque</label>
+            <label><input type="checkbox" id="chk_light"> Headlight</label>
+        </div>
+    </div>
+
     <div class="btn-group">
         <button id="connectBtn">Connect to Bike</button>
         <button id="disconnectBtn" style="display:none;">Disconnect</button>

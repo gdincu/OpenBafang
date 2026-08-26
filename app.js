@@ -37,6 +37,10 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
     try {
         document.getElementById('status').innerHTML = "Status: <b>Connecting...</b>";
         
+        // Lock configuration inputs once connected
+        const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.disabled = true);
+
         bleDevice = await navigator.bluetooth.requestDevice({
             filters: [{ name: 'DP E12.CAN' }],
             optionalServices: ['0000fff0-0000-1000-8000-00805f9b34fb']
@@ -60,6 +64,9 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
     } catch (error) {
         console.error("Bluetooth Error:", error);
         document.getElementById('status').innerHTML = "Status: <b style='color:red;'>Connection Failed</b>";
+        // Unlock if connection failed
+        const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
+        checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
     }
 });
 
@@ -73,6 +80,10 @@ function onDisconnected() {
     document.getElementById('connectBtn').style.display = 'block';
     document.getElementById('disconnectBtn').style.display = 'none';
     releaseWakeLock();
+    
+    // Unlock configuration options again
+    const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
+    checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
 }
 
 // Decode Telemetry
@@ -83,13 +94,7 @@ function handleBikeData(event) {
     const cmdId = buffer[2];
 
     if (cmdId === 0x4A) { currentPas = buffer[4]; document.getElementById('pasDisplay').innerText = currentPas; }
-    
-    // Inverted headlight logic: 00 = ON, 01 = OFF
-    if (cmdId === 0x40) { 
-        currentLight = buffer[4] === 0x00 ? "ON" : "OFF"; 
-        document.getElementById('lightDisplay').innerText = currentLight; 
-    }
-    
+    if (cmdId === 0x40) { currentLight = buffer[4] === 0x00 ? "ON" : "OFF"; document.getElementById('lightDisplay').innerText = currentLight; }
     if (cmdId === 0x64) { currentBattery = buffer[4]; document.getElementById('battDisplay').innerText = `${currentBattery}%`; }
     if (cmdId === 0x44) { currentSpeed = (((buffer[4] << 8) | buffer[5]) / 10).toFixed(1); document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`; }
     if (cmdId === 0x47) { currentTrip = (((buffer[4] << 8) | buffer[5]) / 10).toFixed(1); document.getElementById('tripDisplay').innerText = `${currentTrip} km`; }
@@ -111,29 +116,42 @@ function handleBikeData(event) {
         document.getElementById('consoleOutput').innerText = "Logging is disabled.";
     }
 
-    rideData.push({
+    // Build data packet based on user selections
+    let dataPoint = {
         timestamp: new Date().toISOString(),
         lat: currentLat,
-        lon: currentLon,
-        pas: currentPas,
-        speed: currentSpeed,
-        trip: currentTrip,
-        odo: currentOdo,
-        range: currentRange,
-        torque: currentTorque,
-        battery: currentBattery,
-        voltage: currentVoltage,
-        temp: currentTemp,
-        light: currentLight,
-        rawHex: logHexVal
-    });
+        lon: currentLon
+    };
+
+    if (document.getElementById('chk_speed').checked) dataPoint.speed = currentSpeed;
+    if (document.getElementById('chk_odo').checked) dataPoint.odo = currentOdo;
+    if (document.getElementById('chk_battery').checked) dataPoint.battery = currentBattery;
+    if (document.getElementById('chk_temp').checked) dataPoint.temp = currentTemp;
+    if (document.getElementById('chk_pas').checked) dataPoint.pas = currentPas;
+    if (document.getElementById('chk_voltage').checked) dataPoint.voltage = currentVoltage;
+    if (document.getElementById('chk_range').checked) dataPoint.range = currentRange;
+    if (document.getElementById('chk_trip').checked) dataPoint.trip = currentTrip;
+    if (document.getElementById('chk_torque').checked) dataPoint.torque = currentTorque;
+    if (document.getElementById('chk_light').checked) dataPoint.light = currentLight;
+    if (isHexEnabled) dataPoint.rawHex = logHexVal;
+
+    rideData.push(dataPoint);
 }
 
-// CSV Export
+// Dynamic CSV Export
 document.getElementById('exportBtn').addEventListener('click', () => {
-    let csvContent = "data:text/csv;charset=utf-8,Timestamp,Latitude,Longitude,PAS,Speed_kmh,Trip_km,Odometer_km,Range_km,Torque,Battery_%,Voltage_V,Temp_C,Light,RawHex\n";
+    if (rideData.length === 0) return;
+
+    // Dynamically extract keys from the first recorded data point to form CSV headers
+    const keys = Object.keys(rideData[0]);
+    let csvContent = "data:text/csv;charset=utf-8," + keys.join(",") + "\n";
+    
     rideData.forEach(row => {
-        csvContent += `${row.timestamp},${row.lat},${row.lon},${row.pas},${row.speed},${row.trip},${row.odo},${row.range},${row.torque},${row.battery},${row.voltage},${row.temp},${row.light},"${row.rawHex}"\n`;
+        let line = keys.map(key => {
+            let val = row[key] !== undefined ? row[key] : "";
+            return typeof val === 'string' && val.includes(',') ? `"${val}"` : val;
+        });
+        csvContent += line.join(",") + "\n";
     });
     
     const encodedUri = encodeURI(csvContent);
