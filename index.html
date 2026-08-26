@@ -20,6 +20,7 @@
         <h4 style="margin-top:0;">Live Status</h4>
         <div id="status">Status: Disconnected</div>
         <div id="gpsDisplay">GPS: Waiting...</div>
+		<div id="pasDisplay">PAS Level: --</div>
     </div>
     
     <hr>
@@ -82,26 +83,43 @@
         });
 
         // 4. Handle incoming Bike Data
-        function handleBikeData(event) {
-            const buffer = new Uint8Array(event.target.value.buffer);
-            
-            const hexString = Array.from(buffer)
-                .map(b => b.toString(16).padStart(2, '0').toUpperCase())
-                .join(' ');
+function handleBikeData(event) {
+    const buffer = new Uint8Array(event.target.value.buffer);
+    
+    // Create the raw hex string for debugging/logging
+    const hexString = Array.from(buffer)
+        .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+        .join(' ');
 
-            console.log("Raw Bike Data:", hexString);
+    console.log("Raw Bike Data:", hexString);
 
-            recentHexLogs.unshift(hexString);
-            if (recentHexLogs.length > 5) recentHexLogs.pop();
-            document.getElementById('consoleOutput').innerText = recentHexLogs.join('\n');
+    // Parse the specific Commands
+    const cmdId = buffer[2]; // The 3rd byte is the Command ID
+    let currentPas = "Unknown";
 
-            rideData.push({
-                timestamp: new Date().toISOString(),
-                lat: currentLat,
-                lon: currentLon,
-                rawHex: hexString
-            });
-        }
+    // If the Command ID is 74 (0x4A in hex), parse the PAS level
+    if (cmdId === 74) {
+        currentPas = buffer[4]; // The 5th byte contains the PAS level
+        
+        // Update the UI (You'll need to add <div id="pasDisplay"> to your HTML)
+        const pasDiv = document.getElementById('pasDisplay');
+        if (pasDiv) pasDiv.innerText = `PAS Level: ${currentPas}`;
+    }
+
+    // Update the on-screen hex log
+    recentHexLogs.unshift(hexString);
+    if (recentHexLogs.length > 5) recentHexLogs.pop();
+    document.getElementById('consoleOutput').innerText = recentHexLogs.join('\n');
+
+    // Save to the CSV array
+    rideData.push({
+        timestamp: new Date().toISOString(),
+        lat: currentLat,
+        lon: currentLon,
+        pas: currentPas,
+        rawHex: hexString
+    });
+}
 
         // 5. Export Data to CSV
         document.getElementById('exportBtn').addEventListener('click', () => {
