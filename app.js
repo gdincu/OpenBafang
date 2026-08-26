@@ -1,5 +1,5 @@
 let rideData = [];
-let currentLat = 0, currentLon = 0;
+let currentLat = 0, currentLon = 0, currentAltitude = 0;
 let recentHexLogs = [];
 let wakeLock = null;
 let bleDevice = null;
@@ -9,7 +9,6 @@ let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
 let currentTrip = "--", currentRange = "--", currentTorque = "--";
 let currentLight = "--";
 
-// Handle UI visibility of optional metrics based on checkboxes
 function updateDisplayVisibility() {
     const metrics = ['speed', 'battery', 'pas', 'voltage', 'range', 'trip', 'odo', 'torque', 'temp', 'light'];
     metrics.forEach(m => {
@@ -21,14 +20,11 @@ function updateDisplayVisibility() {
     });
 }
 
-// Attach listeners to update layout dynamically when toggled
 document.querySelectorAll('.config-grid input[type="checkbox"]').forEach(cb => {
     cb.addEventListener('change', updateDisplayVisibility);
 });
-// Run once on load
 updateDisplayVisibility();
 
-// Screen Wake Lock
 async function requestWakeLock() {
     if ('wakeLock' in navigator) {
         try { wakeLock = await navigator.wakeLock.request('screen'); } 
@@ -40,23 +36,30 @@ function releaseWakeLock() {
     if (wakeLock !== null) { wakeLock.release().then(() => wakeLock = null); }
 }
 
-// GPS Tracking
 navigator.geolocation.watchPosition(
     (position) => {
         currentLat = position.coords.latitude;
         currentLon = position.coords.longitude;
-        document.getElementById('gpsDisplay').innerText = `GPS: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}`;
+        currentAltitude = position.coords.altitude !== null ? position.coords.altitude : 0;
+        
+        const gpsEl = document.getElementById('gpsDisplay');
+        gpsEl.innerText = "GPS OK";
+        gpsEl.style.color = "green";
+        gpsEl.style.fontWeight = "bold";
     },
-    (err) => console.error("GPS Error:", err),
+    (err) => {
+        console.error("GPS Error:", err);
+        const gpsEl = document.getElementById('gpsDisplay');
+        gpsEl.innerText = "GPS Error";
+        gpsEl.style.color = "red";
+    },
     { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
 );
 
-// Connect Bluetooth
 document.getElementById('connectBtn').addEventListener('click', async () => {
     try {
         document.getElementById('status').innerHTML = "Status: <b>Connecting...</b>";
         
-        // Lock configuration inputs once connected
         const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
         checkboxes.forEach(cb => cb.disabled = true);
 
@@ -88,7 +91,6 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
     }
 });
 
-// Disconnect
 document.getElementById('disconnectBtn').addEventListener('click', () => {
     if (bleDevice && bleDevice.gatt.connected) { bleDevice.gatt.disconnect(); }
 });
@@ -103,7 +105,6 @@ function onDisconnected() {
     checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
 }
 
-// Decode Telemetry
 function handleBikeData(event) {
     const buffer = new Uint8Array(event.target.value.buffer);
     const hexString = Array.from(buffer).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
@@ -132,11 +133,12 @@ function handleBikeData(event) {
         document.getElementById('consoleOutput').innerText = "Logging is disabled.";
     }
 
-    // Build data packet dynamically based on user selections
+    // Baseline mandatory fields (Timestamp, Lat, Lon, Altitude)
     let dataPoint = {
         timestamp: new Date().toISOString(),
         lat: currentLat,
-        lon: currentLon
+        lon: currentLon,
+        altitude_m: currentAltitude.toFixed(1)
     };
 
     if (document.getElementById('chk_speed').checked) dataPoint.speed = currentSpeed;
@@ -154,7 +156,6 @@ function handleBikeData(event) {
     rideData.push(dataPoint);
 }
 
-// Dynamic CSV Export
 document.getElementById('exportBtn').addEventListener('click', () => {
     if (rideData.length === 0) return;
 
