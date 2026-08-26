@@ -1,5 +1,6 @@
 let rideData = [];
 let currentLat = 0, currentLon = 0, currentAltitude = 0;
+let lastLoggedLat = null, lastLoggedLon = null;
 let recentHexLogs = [];
 let wakeLock = null;
 let bleDevice = null;
@@ -8,6 +9,9 @@ let currentPas = "--", currentSpeed = "--", currentOdo = "--";
 let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
 let currentTrip = "--", currentRange = "--", currentTorque = "--";
 let currentLight = "--";
+
+// Configuration for smart GPS logging (inspired by GPXLogger strategies)
+const MIN_MOVE_METERS = 3; // Minimum distance change required to log a new position update
 
 function updateDisplayVisibility() {
     const metrics = ['speed', 'battery', 'pas', 'voltage', 'range', 'trip', 'odo', 'torque', 'temp', 'light'];
@@ -36,7 +40,24 @@ function releaseWakeLock() {
     if (wakeLock !== null) { wakeLock.release().then(() => wakeLock = null); }
 }
 
-// GPS Tracking with clean OK/Searching states
+// Helper: Calculate distance in meters between two lat/lon points (Haversine formula)
+function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Radius of the earth in meters
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+        Math.sin(dLon / 2) * Math.sin(dLon / 2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+    return R * c;
+}
+
+function deg2rad(deg) {
+    return deg * (Math.PI / 180);
+}
+
+// GPS Tracking with status indicators
 navigator.geolocation.watchPosition(
     (position) => {
         currentLat = position.coords.latitude;
@@ -51,7 +72,11 @@ navigator.geolocation.watchPosition(
         const gpsEl = document.getElementById('gpsDisplay');
         gpsEl.innerHTML = `GPS: <span class="status-badge status-searching">Searching</span>`;
     },
-    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    { 
+        enableHighAccuracy: true, 
+        timeout: 15000, 
+        maximumAge: 10000 
+    }
 );
 
 document.getElementById('connectBtn').addEventListener('click', async () => {
@@ -103,6 +128,7 @@ function onDisconnected() {
     checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
 }
 
+// Decode Telemetry & Evaluate Smart Logging Filter
 function handleBikeData(event) {
     const buffer = new Uint8Array(event.target.value.buffer);
     const hexString = Array.from(buffer).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
@@ -131,26 +157,44 @@ function handleBikeData(event) {
         document.getElementById('consoleOutput').innerText = "Logging is disabled.";
     }
 
-    let dataPoint = {
-        timestamp: new Date().toISOString(),
-        lat: currentLat,
-        lon: currentLon,
-        altitude_m: currentAltitude.toFixed(1)
-    };
+    // Smart Logging Filter Check:
+    // If we have a previous point, check if we've moved at least MIN_MOVE_METERS.
+    // If it's our very first point, or we've moved past the threshold, record it.
+    let shouldLog = false;
+    if (lastLoggedLat === null || lastLoggedLon === null) {
+        shouldLog = true;
+    } else {
+        let distance = getDistanceFromLatLonInMeters(lastLoggedLat, lastLoggedLon, currentLat, currentLon);
+        if (distance >= MIN_MOVE_METERS) {
+            shouldLog = true;
+        }
+    }
 
-    if (document.getElementById('chk_speed').checked) dataPoint.speed = currentSpeed;
-    if (document.getElementById('chk_odo').checked) dataPoint.odo = currentOdo;
-    if (document.getElementById('chk_battery').checked) dataPoint.battery = currentBattery;
-    if (document.getElementById('chk_temp').checked) dataPoint.temp = currentTemp;
-    if (document.getElementById('chk_pas').checked) dataPoint.pas = currentPas;
-    if (document.getElementById('chk_voltage').checked) dataPoint.voltage = currentVoltage;
-    if (document.getElementById('chk_range').checked) dataPoint.range = currentRange;
-    if (document.getElementById('chk_trip').checked) dataPoint.trip = currentTrip;
-    if (document.getElementById('chk_torque').checked) dataPoint.torque = currentTorque;
-    if (document.getElementById('chk_light').checked) dataPoint.light = currentLight;
-    if (isHexEnabled) dataPoint.rawHex = logHexVal;
+    if (shouldLog) {
+        lastLoggedLat = currentLat;
+        lastLoggedLon = currentLon;
 
-    rideData.push(dataPoint);
+        let dataPoint = {
+            timestamp: new Date().toISOString(),
+            lat: currentLat,
+            lon: currentLon,
+            altitude_m: currentAltitude.toFixed(1)
+        };
+
+        if (document.getElementById('chk_speed').checked) dataPoint.speed = currentSpeed;
+        if (document.getElementById('chk_odo').checked) dataPoint.odo = currentOdo;
+        if (document.getElementById('chk_battery').checked) dataPoint.battery = currentBattery;
+        if (document.getElementById('chk_temp').checked) dataPoint.temp = currentTemp;
+        if (document.getElementById('chk_pas').checked) dataPoint.pas = currentPas;
+        if (document.getElementById('chk_voltage').checked) dataPoint.voltage = currentVoltage;
+        if (document.getElementById('chk_range').checked) dataPoint.range = currentRange;
+        if (document.getElementById('chk_trip').checked) dataPoint.trip = currentTrip;
+        if (document.getElementById('chk_torque').checked) dataPoint.torque = currentTorque;
+        if (document.getElementById('chk_light').checked) dataPoint.light = currentLight;
+        if (isHexEnabled) dataPoint.rawHex = logHexVal;
+
+        rideData.push(dataPoint);
+    }
 }
 
 document.getElementById('exportBtn').addEventListener('click', () => {
