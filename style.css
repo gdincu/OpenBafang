@@ -1,0 +1,63 @@
+body { 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+    padding: 15px; 
+    max-width: 500px; 
+    margin: auto; 
+    background-color: #f9f9f9;
+    color: #333;
+}
+h2 { text-align: center; margin-bottom: 15px; font-size: 22px; }
+
+.btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
+button { 
+    padding: 14px; 
+    font-size: 15px; 
+    font-weight: bold;
+    flex: 1;
+    cursor: pointer; 
+    border: none;
+    border-radius: 8px;
+    transition: opacity 0.2s;
+}
+button:active { opacity: 0.8; }
+#connectBtn { background-color: #007bff; color: white; }
+#disconnectBtn { background-color: #dc3545; color: white; }
+#exportBtn { background-color: #28a745; color: white; width: 100%; margin-bottom: 15px;}
+#exportBtn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+.card { 
+    background: white; 
+    padding: 15px; 
+    border-radius: 10px; 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 15px; 
+}
+.metric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 15px;
+}
+.metric {
+    background: #eef6ff;
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+}
+.metric-title { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;}
+.metric-value { font-size: 18px; font-weight: bold; color: #007bff; margin-top: 4px; }
+
+#status { font-size: 14px; }
+#gpsDisplay { font-size: 12px; color: #666; margin-top: 4px; }
+
+pre { 
+    background: #272822; 
+    color: #f8f8f2;
+    padding: 12px; 
+    font-size: 11px; 
+    border-radius: 6px;
+    overflow-x: auto; 
+    white-space: pre-wrap;
+    margin: 0;
+    max-height: 120px;
+}
