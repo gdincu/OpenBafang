@@ -9,6 +9,25 @@ let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
 let currentTrip = "--", currentRange = "--", currentTorque = "--";
 let currentLight = "--";
 
+// Handle UI visibility of optional metrics based on checkboxes
+function updateDisplayVisibility() {
+    const metrics = ['speed', 'battery', 'pas', 'voltage', 'range', 'trip', 'odo', 'torque', 'temp', 'light'];
+    metrics.forEach(m => {
+        const checkbox = document.getElementById(`chk_${m}`);
+        const box = document.getElementById(`box_${m}`);
+        if (checkbox && box) {
+            box.style.display = checkbox.checked ? 'block' : 'none';
+        }
+    });
+}
+
+// Attach listeners to update layout dynamically when toggled
+document.querySelectorAll('.config-grid input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', updateDisplayVisibility);
+});
+// Run once on load
+updateDisplayVisibility();
+
 // Screen Wake Lock
 async function requestWakeLock() {
     if ('wakeLock' in navigator) {
@@ -64,7 +83,6 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
     } catch (error) {
         console.error("Bluetooth Error:", error);
         document.getElementById('status').innerHTML = "Status: <b style='color:red;'>Connection Failed</b>";
-        // Unlock if connection failed
         const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
         checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
     }
@@ -81,7 +99,6 @@ function onDisconnected() {
     document.getElementById('disconnectBtn').style.display = 'none';
     releaseWakeLock();
     
-    // Unlock configuration options again
     const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
     checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
 }
@@ -94,7 +111,7 @@ function handleBikeData(event) {
     const cmdId = buffer[2];
 
     if (cmdId === 0x4A) { currentPas = buffer[4]; document.getElementById('pasDisplay').innerText = currentPas; }
-    if (cmdId === 0x40) { currentLight = buffer[4] === 0x00 ? "ON" : "OFF"; document.getElementById('lightDisplay').innerText = currentLight; }
+    if (cmdId === 0x40) { currentLight = buffer[4] === 0x01 ? "ON" : "OFF"; document.getElementById('lightDisplay').innerText = currentLight; }
     if (cmdId === 0x64) { currentBattery = buffer[4]; document.getElementById('battDisplay').innerText = `${currentBattery}%`; }
     if (cmdId === 0x44) { currentSpeed = (((buffer[4] << 8) | buffer[5]) / 10).toFixed(1); document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`; }
     if (cmdId === 0x47) { currentTrip = (((buffer[4] << 8) | buffer[5]) / 10).toFixed(1); document.getElementById('tripDisplay').innerText = `${currentTrip} km`; }
@@ -104,7 +121,6 @@ function handleBikeData(event) {
     if (cmdId === 0x60) { currentTemp = (((buffer[4] << 8) | buffer[5]) / 10).toFixed(1); document.getElementById('tempDisplay').innerText = `${currentTemp} °C`; }
     if (cmdId === 0x46) { currentOdo = (buffer[4] << 16) | (buffer[5] << 8) | buffer[6]; document.getElementById('odoDisplay').innerText = `${currentOdo} km`; }
 
-    // Optional Hex Logging Checkbox Handling
     let logHexVal = "";
     const isHexEnabled = document.getElementById('toggleHex').checked;
     if (isHexEnabled) {
@@ -116,7 +132,7 @@ function handleBikeData(event) {
         document.getElementById('consoleOutput').innerText = "Logging is disabled.";
     }
 
-    // Build data packet based on user selections
+    // Build data packet dynamically based on user selections
     let dataPoint = {
         timestamp: new Date().toISOString(),
         lat: currentLat,
@@ -142,7 +158,6 @@ function handleBikeData(event) {
 document.getElementById('exportBtn').addEventListener('click', () => {
     if (rideData.length === 0) return;
 
-    // Dynamically extract keys from the first recorded data point to form CSV headers
     const keys = Object.keys(rideData[0]);
     let csvContent = "data:text/csv;charset=utf-8," + keys.join(",") + "\n";
     

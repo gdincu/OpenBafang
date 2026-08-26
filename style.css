@@ -88,3 +88,39 @@ summary::-webkit-details-marker {
 details[open] summary {
     margin-bottom: 5px;
 }
+
+.primary-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 15px;
+}
+.metric-primary {
+    background: #e3f2fd;
+    border: 2px solid #2196f3;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+}
+.metric-value-large {
+    font-size: 26px;
+    font-weight: bold;
+    color: #0d47a1;
+    margin-top: 6px;
+}
+
+/* Update standard metric grid appearance */
+.metric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+}
+.metric {
+    background: #f1f3f5;
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+}
+.metric-title { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;}
+.metric-value { font-size: 16px; font-weight: bold; color: #333; margin-top: 4px; }

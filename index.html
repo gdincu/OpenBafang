@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>OpenBafang</title>
+    <title>Bafang Ride Tracker</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
@@ -10,18 +10,18 @@
 </head>
 <body>
 
-    <h2>OpenBafang</h2>
+    <h2>Bafang Ride Tracker</h2>
     
     <!-- Collapsible Configuration Panel -->
     <details class="card" id="configCard">
-        <summary><b>Configure Log Metrics</b></summary>
+        <summary><b>Configure Log & Display Metrics</b></summary>
         <div class="config-grid" style="margin-top: 12px;">
             <label><input type="checkbox" id="chk_timestamp" checked disabled> Timestamp</label>
             <label><input type="checkbox" id="chk_latlon" checked disabled> Lat / Lon</label>
             <label><input type="checkbox" id="chk_speed" checked> Speed</label>
-            <label><input type="checkbox" id="chk_odo" checked> Odometer</label>
             <label><input type="checkbox" id="chk_battery" checked> Battery %</label>
-            <label><input type="checkbox" id="chk_temp" checked> Battery Temp</label>
+            <label><input type="checkbox" id="chk_odo"> Odometer</label>
+            <label><input type="checkbox" id="chk_temp"> Battery Temp</label>
             <label><input type="checkbox" id="chk_pas"> PAS Level</label>
             <label><input type="checkbox" id="chk_voltage"> Voltage</label>
             <label><input type="checkbox" id="chk_range"> Est. Range</label>
@@ -43,44 +43,49 @@
         <div id="status">Status: <b>Disconnected</b></div>
         <div id="gpsDisplay">GPS: Waiting...</div>
 
-        <div class="metric-grid">
-            <div class="metric">
+        <!-- Large Primary Display for Speed & Battery -->
+        <div class="primary-metrics">
+            <div class="metric-primary" id="box_speed">
                 <div class="metric-title">Speed</div>
-                <div class="metric-value" id="speedDisplay">-- km/h</div>
+                <div class="metric-value-large" id="speedDisplay">-- km/h</div>
             </div>
-            <div class="metric">
+            <div class="metric-primary" id="box_battery">
+                <div class="metric-title">Battery</div>
+                <div class="metric-value-large" id="battDisplay">-- %</div>
+            </div>
+        </div>
+
+        <!-- Smaller Grid for Optional Secondary Metrics -->
+        <div class="metric-grid" id="secondaryGrid">
+            <div class="metric" id="box_pas" style="display:none;">
                 <div class="metric-title">PAS Level</div>
                 <div class="metric-value" id="pasDisplay">--</div>
             </div>
-            <div class="metric">
-                <div class="metric-title">Battery</div>
-                <div class="metric-value" id="battDisplay">-- %</div>
-            </div>
-            <div class="metric">
+            <div class="metric" id="box_voltage" style="display:none;">
                 <div class="metric-title">Voltage</div>
                 <div class="metric-value" id="voltDisplay">-- V</div>
             </div>
-            <div class="metric">
+            <div class="metric" id="box_range" style="display:none;">
                 <div class="metric-title">Est. Range</div>
                 <div class="metric-value" id="rangeDisplay">-- km</div>
             </div>
-            <div class="metric">
+            <div class="metric" id="box_trip" style="display:none;">
                 <div class="metric-title">Trip Dist.</div>
                 <div class="metric-value" id="tripDisplay">-- km</div>
             </div>
-            <div class="metric">
+            <div class="metric" id="box_odo" style="display:none;">
                 <div class="metric-title">Odometer</div>
                 <div class="metric-value" id="odoDisplay">-- km</div>
             </div>
-            <div class="metric">
+            <div class="metric" id="box_torque" style="display:none;">
                 <div class="metric-title">Torque</div>
                 <div class="metric-value" id="torqueDisplay">--</div>
             </div>
-            <div class="metric">
+            <div class="metric" id="box_temp" style="display:none;">
                 <div class="metric-title">Batt. Temp</div>
                 <div class="metric-value" id="tempDisplay">-- °C</div>
             </div>
-            <div class="metric">
+            <div class="metric" id="box_light" style="display:none;">
                 <div class="metric-title">Headlight</div>
                 <div class="metric-value" id="lightDisplay">--</div>
             </div>
