@@ -7,41 +7,45 @@
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            padding: 20px; 
+            padding: 15px; 
             max-width: 500px; 
             margin: auto; 
             background-color: #f9f9f9;
             color: #333;
         }
-        h2 { text-align: center; margin-bottom: 20px; }
+        h2 { text-align: center; margin-bottom: 15px; font-size: 22px; }
+        
+        /* Button Styling */
+        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
         button { 
-            padding: 15px; 
-            font-size: 16px; 
+            padding: 14px; 
+            font-size: 15px; 
             font-weight: bold;
-            margin: 8px 0; 
-            width: 100%; 
+            flex: 1;
             cursor: pointer; 
             border: none;
             border-radius: 8px;
-            transition: background-color 0.2s;
+            transition: opacity 0.2s;
         }
+        button:active { opacity: 0.8; }
         #connectBtn { background-color: #007bff; color: white; }
-        #connectBtn:hover { background-color: #0056b3; }
-        #exportBtn { background-color: #28a745; color: white; }
+        #disconnectBtn { background-color: #dc3545; color: white; display: none; }
+        #exportBtn { background-color: #28a745; color: white; width: 100%; margin-bottom: 15px;}
         #exportBtn:disabled { background-color: #ccc; cursor: not-allowed; }
         
+        /* Cards & Grids */
         .card { 
             background: white; 
-            padding: 18px; 
+            padding: 15px; 
             border-radius: 10px; 
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin: 15px 0; 
+            margin-bottom: 15px; 
         }
         .metric-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 10px;
+            gap: 10px;
+            margin-top: 15px;
         }
         .metric {
             background: #eef6ff;
@@ -49,8 +53,12 @@
             border-radius: 6px;
             text-align: center;
         }
-        .metric-title { font-size: 12px; color: #666; text-transform: uppercase; }
+        .metric-title { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;}
         .metric-value { font-size: 18px; font-weight: bold; color: #007bff; margin-top: 4px; }
+        
+        /* Status Bar */
+        #status { font-size: 14px; }
+        #gpsDisplay { font-size: 12px; color: #666; margin-top: 4px; }
         
         pre { 
             background: #272822; 
@@ -60,6 +68,7 @@
             border-radius: 6px;
             overflow-x: auto; 
             white-space: pre-wrap;
+            margin: 0;
         }
     </style>
 </head>
@@ -67,13 +76,17 @@
 
     <h2>Bafang Ride Tracker</h2>
     
-    <button id="connectBtn">Connect to Bike & Start Logging</button>
+    <div class="btn-group">
+        <button id="connectBtn">Connect to Bike</button>
+        <button id="disconnectBtn">Disconnect</button>
+    </div>
+    
     <button id="exportBtn" disabled>Export CSV Log</button>
     
     <div class="card">
         <h4 style="margin: 0 0 10px 0;">Live System State</h4>
         <div id="status">Status: <b>Disconnected</b></div>
-        <div id="gpsDisplay" style="margin-top: 5px; font-size: 14px; color: #555;">GPS: Waiting...</div>
+        <div id="gpsDisplay">GPS: Waiting...</div>
 
         <div class="metric-grid">
             <div class="metric">
@@ -81,16 +94,40 @@
                 <div class="metric-value" id="speedDisplay">-- km/h</div>
             </div>
             <div class="metric">
-                <div class="metric-title">Battery</div>
-                <div class="metric-value" id="battDisplay">-- %</div>
-            </div>
-            <div class="metric">
                 <div class="metric-title">PAS Level</div>
                 <div class="metric-value" id="pasDisplay">--</div>
             </div>
             <div class="metric">
+                <div class="metric-title">Battery</div>
+                <div class="metric-value" id="battDisplay">-- %</div>
+            </div>
+            <div class="metric">
+                <div class="metric-title">Voltage</div>
+                <div class="metric-value" id="voltDisplay">-- V</div>
+            </div>
+            <div class="metric">
+                <div class="metric-title">Est. Range</div>
+                <div class="metric-value" id="rangeDisplay">-- km</div>
+            </div>
+            <div class="metric">
+                <div class="metric-title">Trip Dist.</div>
+                <div class="metric-value" id="tripDisplay">-- km</div>
+            </div>
+            <div class="metric">
                 <div class="metric-title">Odometer</div>
                 <div class="metric-value" id="odoDisplay">-- km</div>
+            </div>
+            <div class="metric">
+                <div class="metric-title">Torque</div>
+                <div class="metric-value" id="torqueDisplay">--</div>
+            </div>
+            <div class="metric">
+                <div class="metric-title">Batt. Temp</div>
+                <div class="metric-value" id="tempDisplay">-- °C</div>
+            </div>
+            <div class="metric">
+                <div class="metric-title">Headlight</div>
+                <div class="metric-value" id="lightDisplay">--</div>
             </div>
         </div>
     </div>
@@ -105,12 +142,13 @@
         let currentLat = 0, currentLon = 0;
         let recentHexLogs = [];
         let wakeLock = null;
+        let bleDevice = null;
 
         // Current Telemetry State
-        let currentPas = "--";
-        let currentSpeed = "--";
-        let currentOdo = "--";
-        let currentBattery = "--";
+        let currentPas = "--", currentSpeed = "--", currentOdo = "--";
+        let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
+        let currentTrip = "--", currentRange = "--", currentTorque = "--";
+        let currentLight = "--";
 
         // 1. Keep Screen Awake
         async function requestWakeLock() {
@@ -118,12 +156,18 @@
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
                 } catch (err) {
-                    console.error(`Wake Lock Error: ${err.name}, ${err.message}`);
+                    console.error(`Wake Lock Error: ${err.message}`);
                 }
             }
         }
 
-        // 2. High-Accuracy GPS Tracking
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => wakeLock = null);
+            }
+        }
+
+        // 2. GPS Tracking
         navigator.geolocation.watchPosition(
             (position) => {
                 currentLat = position.coords.latitude;
@@ -135,25 +179,31 @@
             { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
         );
 
-        // 3. Bluetooth Connection
+        // 3. Connect Bluetooth
         document.getElementById('connectBtn').addEventListener('click', async () => {
             try {
                 document.getElementById('status').innerHTML = "Status: <b>Connecting...</b>";
                 
-                const device = await navigator.bluetooth.requestDevice({
+                bleDevice = await navigator.bluetooth.requestDevice({
                     filters: [{ name: 'DP E12.CAN' }],
                     optionalServices: ['0000fff0-0000-1000-8000-00805f9b34fb']
                 });
                 
-                const server = await device.gatt.connect();
+                // Set up auto-disconnect listener
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+                const server = await bleDevice.gatt.connect();
                 const service = await server.getPrimaryService('0000fff0-0000-1000-8000-00805f9b34fb');
                 const notifyChar = await service.getCharacteristic('0000fff4-0000-1000-8000-00805f9b34fb');
                 
                 await notifyChar.startNotifications();
                 notifyChar.addEventListener('characteristicvaluechanged', handleBikeData);
                 
+                // Update UI for connection
                 document.getElementById('status').innerHTML = "Status: <b style='color:green;'>Connected & Logging</b>";
                 document.getElementById('exportBtn').disabled = false;
+                document.getElementById('connectBtn').style.display = 'none';
+                document.getElementById('disconnectBtn').style.display = 'block';
                 
                 await requestWakeLock();
                 
@@ -163,7 +213,21 @@
             }
         });
 
-        // 4. Decode Telemetry Payloads
+        // 4. Disconnect Logic
+        document.getElementById('disconnectBtn').addEventListener('click', () => {
+            if (bleDevice && bleDevice.gatt.connected) {
+                bleDevice.gatt.disconnect();
+            }
+        });
+
+        function onDisconnected() {
+            document.getElementById('status').innerHTML = "Status: <b style='color:red;'>Disconnected</b>";
+            document.getElementById('connectBtn').style.display = 'block';
+            document.getElementById('disconnectBtn').style.display = 'none';
+            releaseWakeLock();
+        }
+
+        // 5. Decode Telemetry
         function handleBikeData(event) {
             const buffer = new Uint8Array(event.target.value.buffer);
             
@@ -173,55 +237,99 @@
 
             const cmdId = buffer[2]; // Byte 3 is Command ID
 
-            // Command 0x4A (74): PAS Level
+            // Cmd 0x4A (74): PAS Level (1 Byte)
             if (cmdId === 0x4A) {
                 currentPas = buffer[4];
                 document.getElementById('pasDisplay').innerText = currentPas;
             }
 
-            // Command 0x64 (100): Battery Percentage
+            // Cmd 0x40 (64): Headlight (1 Byte: 00 = ON, 01 = OFF)
+            if (cmdId === 0x40) {
+                currentLight = buffer[4] === 0x00 ? "ON" : "OFF";
+                document.getElementById('lightDisplay').innerText = currentLight;
+            }
+
+            // Cmd 0x64 (100): Battery % (1 Byte)
             if (cmdId === 0x64) {
                 currentBattery = buffer[4];
                 document.getElementById('battDisplay').innerText = `${currentBattery}%`;
             }
 
-            // Command 0x44 (68): Speed (2 Bytes)
+            // Cmd 0x44 (68): Speed (2 Bytes, scaled by 10)
             if (cmdId === 0x44) {
                 let rawSpeed = (buffer[4] << 8) | buffer[5];
                 currentSpeed = (rawSpeed / 10).toFixed(1); 
                 document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`;
             }
 
-            // Command 0x46 (70): Odometer (3 Bytes)
+            // Cmd 0x47 (71): Trip Distance (2 Bytes, scaled by 10)
+            if (cmdId === 0x47) {
+                let rawTrip = (buffer[4] << 8) | buffer[5];
+                currentTrip = (rawTrip / 10).toFixed(1); 
+                document.getElementById('tripDisplay').innerText = `${currentTrip} km`;
+            }
+
+            // Cmd 0x71 (113): Remaining Range (2 Bytes, raw km)
+            if (cmdId === 0x71) {
+                currentRange = (buffer[4] << 8) | buffer[5];
+                document.getElementById('rangeDisplay').innerText = `${currentRange} km`;
+            }
+
+            // Cmd 0xD3 (211): Torque (2 Bytes)
+            if (cmdId === 0xD3) {
+                currentTorque = (buffer[4] << 8) | buffer[5];
+                document.getElementById('torqueDisplay').innerText = currentTorque;
+            }
+
+            // Cmd 0x61 (97): Voltage (2 Bytes in mV)
+            if (cmdId === 0x61) {
+                let rawVolt = (buffer[4] << 8) | buffer[5];
+                currentVoltage = (rawVolt / 1000).toFixed(1); 
+                document.getElementById('voltDisplay').innerText = `${currentVoltage} V`;
+            }
+
+            // Cmd 0x60 (96): Battery Temp (2 Bytes, scaled by 10)
+            if (cmdId === 0x60) {
+                let rawTemp = (buffer[4] << 8) | buffer[5];
+                currentTemp = (rawTemp / 10).toFixed(1); 
+                document.getElementById('tempDisplay').innerText = `${currentTemp} °C`;
+            }
+
+            // Cmd 0x46 (70): Odometer (3 Bytes)
             if (cmdId === 0x46) {
                 currentOdo = (buffer[4] << 16) | (buffer[5] << 8) | buffer[6];
                 document.getElementById('odoDisplay').innerText = `${currentOdo} km`;
             }
 
-            // Update Hex Output Display
+            // Update Log Array & Screen Log
             recentHexLogs.unshift(hexString);
             if (recentHexLogs.length > 5) recentHexLogs.pop();
             document.getElementById('consoleOutput').innerText = recentHexLogs.join('\n');
 
-            // Record Unified Data Snapshot
             rideData.push({
                 timestamp: new Date().toISOString(),
                 lat: currentLat,
                 lon: currentLon,
                 pas: currentPas,
                 speed: currentSpeed,
-                battery: currentBattery,
+                trip: currentTrip,
                 odo: currentOdo,
+                range: currentRange,
+                torque: currentTorque,
+                battery: currentBattery,
+                voltage: currentVoltage,
+                temp: currentTemp,
+                light: currentLight,
                 rawHex: hexString
             });
         }
 
-        // 5. CSV Export Trigger
+        // 6. CSV Export Trigger
         document.getElementById('exportBtn').addEventListener('click', () => {
-            let csvContent = "data:text/csv;charset=utf-8,Timestamp,Latitude,Longitude,PAS,Speed_kmh,Battery_Percent,Odometer_km,RawHex\n";
+            let csvContent = "data:text/csv;charset=utf-8,Timestamp,Latitude,Longitude,PAS,Speed_kmh,Trip_km,Odometer_km,Range_km,Torque,Battery_%,Voltage_V,Temp_C,Light,RawHex\n";
             
             rideData.forEach(row => {
-                csvContent += `${row.timestamp},${row.lat},${row.lon},${row.pas},${row.speed},${row.battery},${row.odo},"${row.rawHex}"\n`;
+                csvContent += `${row.timestamp},${row.lat},${row.lon},${row.pas},${row.speed},${row.trip},${row.odo},${row.range},${row.torque},${row.battery},${row.voltage},${row.temp},${row.light},"${row.rawHex}"\n`;
             });
             
             const encodedUri = encodeURI(csvContent);
