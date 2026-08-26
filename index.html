@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>OpenBafang</title>
+    <title>Bafang Ride Tracker</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
@@ -10,7 +10,7 @@
 </head>
 <body>
 
-    <h2>OpenBafang</h2>
+    <h2>Bafang Ride Tracker</h2>
     
     <!-- Collapsible Configuration Panel -->
     <details class="card" id="configCard">
@@ -40,9 +40,9 @@
     
     <div class="card">
         <h4 style="margin: 0 0 10px 0;">Live System State</h4>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div id="status">Status: <b>Disconnected</b></div>
-            <div id="gpsDisplay" style="font-size: 13px; color: #888;">GPS: Searching...</div>
+        <div class="status-row">
+            <div id="status">Status: <span class="status-badge status-disconnected">Disconnected</span></div>
+            <div id="gpsDisplay">GPS: <span class="status-badge status-searching">Searching</span></div>
         </div>
 
         <!-- Large Primary Display for Speed & Battery -->

@@ -32,63 +32,8 @@ button:active { opacity: 0.8; }
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     margin-bottom: 15px; 
 }
-.metric-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 15px;
-}
-.metric {
-    background: #eef6ff;
-    padding: 10px;
-    border-radius: 6px;
-    text-align: center;
-}
-.metric-title { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;}
-.metric-value { font-size: 18px; font-weight: bold; color: #007bff; margin-top: 4px; }
 
-#status { font-size: 14px; }
-#gpsDisplay { font-size: 12px; color: #666; margin-top: 4px; }
-
-pre { 
-    background: #272822; 
-    color: #f8f8f2;
-    padding: 12px; 
-    font-size: 11px; 
-    border-radius: 6px;
-    overflow-x: auto; 
-    white-space: pre-wrap;
-    margin: 0;
-    max-height: 120px;
-}
-
-.config-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    font-size: 14px;
-}
-.config-grid label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-}
-
-summary {
-    cursor: pointer;
-    font-size: 15px;
-    color: #333;
-    outline: none;
-    user-select: none;
-}
-summary::-webkit-details-marker {
-    color: #007bff;
-}
-details[open] summary {
-    margin-bottom: 5px;
-}
-
+/* Primary Metrics (Speed & Battery) */
 .primary-metrics {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -109,7 +54,7 @@ details[open] summary {
     margin-top: 6px;
 }
 
-/* Update standard metric grid appearance */
+/* Secondary Metrics Grid */
 .metric-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -122,5 +67,74 @@ details[open] summary {
     border-radius: 6px;
     text-align: center;
 }
-.metric-title { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;}
-.metric-value { font-size: 16px; font-weight: bold; color: #333; margin-top: 4px; }
+.metric-title { 
+    font-size: 11px; 
+    color: #666; 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px;
+}
+.metric-value { 
+    font-size: 16px; 
+    font-weight: bold; 
+    color: #333; 
+    margin-top: 4px; 
+}
+
+/* Status Bar & Badges */
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+}
+.status-badge {
+    font-weight: bold;
+}
+.status-disconnected, .status-searching {
+    color: #dc3545; /* Red */
+}
+.status-connected, .status-ok {
+    color: #28a745; /* Green */
+}
+
+/* Configuration Checklist Panel */
+.config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-size: 14px;
+}
+.config-grid label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+/* Collapsible Details / Accordions */
+summary {
+    cursor: pointer;
+    font-size: 15px;
+    color: #333;
+    outline: none;
+    user-select: none;
+}
+summary::-webkit-details-marker {
+    color: #007bff;
+}
+details[open] summary {
+    margin-bottom: 5px;
+}
+
+/* Raw Hex Code Console */
+pre { 
+    background: #272822; 
+    color: #f8f8f2;
+    padding: 12px; 
+    font-size: 11px; 
+    border-radius: 6px;
+    overflow-x: auto; 
+    white-space: pre-wrap;
+    margin: 0;
+    max-height: 120px;
+}

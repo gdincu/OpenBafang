@@ -36,6 +36,7 @@ function releaseWakeLock() {
     if (wakeLock !== null) { wakeLock.release().then(() => wakeLock = null); }
 }
 
+// GPS Tracking with clean OK/Searching states
 navigator.geolocation.watchPosition(
     (position) => {
         currentLat = position.coords.latitude;
@@ -43,22 +44,19 @@ navigator.geolocation.watchPosition(
         currentAltitude = position.coords.altitude !== null ? position.coords.altitude : 0;
         
         const gpsEl = document.getElementById('gpsDisplay');
-        gpsEl.innerText = "GPS OK";
-        gpsEl.style.color = "green";
-        gpsEl.style.fontWeight = "bold";
+        gpsEl.innerHTML = `GPS: <span class="status-badge status-ok">OK</span>`;
     },
     (err) => {
         console.error("GPS Error:", err);
         const gpsEl = document.getElementById('gpsDisplay');
-        gpsEl.innerText = "GPS Error";
-        gpsEl.style.color = "red";
+        gpsEl.innerHTML = `GPS: <span class="status-badge status-searching">Searching</span>`;
     },
     { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
 );
 
 document.getElementById('connectBtn').addEventListener('click', async () => {
     try {
-        document.getElementById('status').innerHTML = "Status: <b>Connecting...</b>";
+        document.getElementById('status').innerHTML = `Status: <span class="status-badge status-searching">Connecting...</span>`;
         
         const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
         checkboxes.forEach(cb => cb.disabled = true);
@@ -77,7 +75,7 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         await notifyChar.startNotifications();
         notifyChar.addEventListener('characteristicvaluechanged', handleBikeData);
         
-        document.getElementById('status').innerHTML = "Status: <b style='color:green;'>Connected & Logging</b>";
+        document.getElementById('status').innerHTML = `Status: <span class="status-badge status-connected">Connected</span>`;
         document.getElementById('exportBtn').disabled = false;
         document.getElementById('connectBtn').style.display = 'none';
         document.getElementById('disconnectBtn').style.display = 'block';
@@ -85,7 +83,7 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         await requestWakeLock();
     } catch (error) {
         console.error("Bluetooth Error:", error);
-        document.getElementById('status').innerHTML = "Status: <b style='color:red;'>Connection Failed</b>";
+        document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">Connection Failed</span>`;
         const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
         checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
     }
@@ -96,7 +94,7 @@ document.getElementById('disconnectBtn').addEventListener('click', () => {
 });
 
 function onDisconnected() {
-    document.getElementById('status').innerHTML = "Status: <b style='color:red;'>Disconnected</b>";
+    document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">Disconnected</span>`;
     document.getElementById('connectBtn').style.display = 'block';
     document.getElementById('disconnectBtn').style.display = 'none';
     releaseWakeLock();
@@ -133,7 +131,6 @@ function handleBikeData(event) {
         document.getElementById('consoleOutput').innerText = "Logging is disabled.";
     }
 
-    // Baseline mandatory fields (Timestamp, Lat, Lon, Altitude)
     let dataPoint = {
         timestamp: new Date().toISOString(),
         lat: currentLat,
