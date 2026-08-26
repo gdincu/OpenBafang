@@ -1,6 +1,6 @@
 {
-  "name": "Bafang Ride Tracker",
-  "short_name": "E-Bike Tracker",
+  "name": "OpenBafang",
+  "short_name": "OpenBafang",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f9f9f9",
