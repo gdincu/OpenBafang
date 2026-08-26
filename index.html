@@ -12,10 +12,10 @@
 
     <h2>OpenBafang</h2>
     
-    <!-- Configuration Panel (Visible before connecting) -->
-    <div class="card" id="configCard">
-        <h4 style="margin: 0 0 10px 0;">Configure Log Metrics</h4>
-        <div class="config-grid">
+    <!-- Collapsible Configuration Panel -->
+    <details class="card" id="configCard">
+        <summary><b>Configure Log Metrics</b></summary>
+        <div class="config-grid" style="margin-top: 12px;">
             <label><input type="checkbox" id="chk_timestamp" checked disabled> Timestamp</label>
             <label><input type="checkbox" id="chk_latlon" checked disabled> Lat / Lon</label>
             <label><input type="checkbox" id="chk_speed" checked> Speed</label>
@@ -29,7 +29,7 @@
             <label><input type="checkbox" id="chk_torque"> Torque</label>
             <label><input type="checkbox" id="chk_light"> Headlight</label>
         </div>
-    </div>
+    </details>
 
     <div class="btn-group">
         <button id="connectBtn">Connect to Bike</button>
@@ -87,15 +87,16 @@
         </div>
     </div>
     
-    <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h4 style="margin: 0;">Raw Hex Stream</h4>
-            <label style="font-size: 13px; cursor: pointer;">
+    <!-- Collapsible Raw Hex Stream Panel -->
+    <details class="card">
+        <summary style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <b>Raw Hex Stream</b>
+            <label style="font-size: 13px; cursor: pointer;" onclick="event.stopPropagation()">
                 <input type="checkbox" id="toggleHex"> Enable Logging
             </label>
-        </div>
-        <pre id="consoleOutput">Logging is disabled.</pre>
-    </div>
+        </summary>
+        <pre id="consoleOutput" style="margin-top: 12px;">Logging is disabled.</pre>
+    </details>
 
     <script src="app.js"></script>
 </body>

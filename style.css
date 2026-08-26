@@ -74,3 +74,17 @@ pre {
     gap: 6px;
     cursor: pointer;
 }
+
+summary {
+    cursor: pointer;
+    font-size: 15px;
+    color: #333;
+    outline: none;
+    user-select: none;
+}
+summary::-webkit-details-marker {
+    color: #007bff;
+}
+details[open] summary {
+    margin-bottom: 5px;
+}
