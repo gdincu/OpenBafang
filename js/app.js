@@ -104,7 +104,7 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         
 		// Setup write characteristic (often fff3 or fff4 depending on firmware permissions)
         try {
-            bleWriteChar = await service.getCharacteristic('0000fff3-0000-1000-8000-00805f9b34fb');
+            bleWriteChar = await service.getCharacteristic('0000fff4-0000-1000-8000-00805f9b34fb');
         } catch(e) {
             bleWriteChar = notifyChar; // Fallback to notify char if writeWithoutResponse is supported on it
         }
