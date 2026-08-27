@@ -26,7 +26,7 @@ export function decodeBafangPacket(buffer) {
             result = { type: 'battery', value: buffer[4] };
             break;
         case BAFANG_COMMANDS.SPEED:
-            result = { type: 'speed', value: (((buffer[4] << 8) | buffer[5]) / 10).toFixed(1) };
+            result = { type: 'speed', value: Math.round(((buffer[4] << 8) | buffer[5]) / 10) };
             break;
         case BAFANG_COMMANDS.TRIP:
             result = { type: 'trip', value: (((buffer[4] << 8) | buffer[5]) / 10).toFixed(1) };
