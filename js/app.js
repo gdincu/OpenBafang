@@ -1,4 +1,4 @@
-import { decodeBafangPacket } from './bafang-protocol.js';
+import { decodeBafangPacket, buildLightCommand, buildPasCommand } from './bafang-protocol.js';
 
 let rideData = [];
 let currentLat = 0, currentLon = 0, currentAltitude = 0;
@@ -6,13 +6,13 @@ let lastLoggedLat = null, lastLoggedLon = null;
 let recentHexLogs = [];
 let wakeLock = null;
 let bleDevice = null;
+let bleWriteChar = null;
 
 let currentPas = "--", currentSpeed = "--", currentOdo = "--";
 let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
 let currentTrip = "--", currentRange = "--", currentTorque = "--";
 let currentLight = "--";
 
-// Configuration for smart GPS logging (inspired by GPXLogger strategies)
 const MIN_MOVE_METERS = 3; // Minimum distance change required to log a new position update
 
 function updateDisplayVisibility() {
@@ -102,6 +102,13 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         await notifyChar.startNotifications();
         notifyChar.addEventListener('characteristicvaluechanged', handleBikeData);
         
+		// Setup write characteristic (often fff3 or fff4 depending on firmware permissions)
+        try {
+            bleWriteChar = await service.getCharacteristic('0000fff3-0000-1000-8000-00805f9b34fb');
+        } catch(e) {
+            bleWriteChar = notifyChar; // Fallback to notify char if writeWithoutResponse is supported on it
+        }
+		
         document.getElementById('status').innerHTML = `Status: <span class="status-badge status-connected">Connected</span>`;
         document.getElementById('exportBtn').disabled = false;
         document.getElementById('connectBtn').style.display = 'none';
@@ -129,6 +136,32 @@ function onDisconnected() {
     const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
     checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
 }
+
+document.getElementById('toggleLightBtn').addEventListener('click', async () => {
+    if (!bleWriteChar) return;
+    try {
+        const turnOn = currentLight !== "ON";
+        const packet = buildLightCommand(turnOn);
+        await bleWriteChar.writeValueWithoutResponse(packet);
+        console.log("Light command sent:", turnOn ? "ON" : "OFF");
+    } catch (err) {
+        console.error("Failed to send headlight command:", err);
+    }
+});
+
+document.querySelectorAll('.pas-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+        if (!bleWriteChar) return;
+        try {
+            const level = e.target.getAttribute('data-level');
+            const packet = buildPasCommand(level);
+            await bleWriteChar.writeValueWithoutResponse(packet);
+            console.log("PAS level command sent:", level);
+        } catch (err) {
+            console.error("Failed to send PAS command:", err);
+        }
+    });
+});
 
 // Decode Telemetry & Evaluate Smart Logging Filter
 function handleBikeData(event) {
