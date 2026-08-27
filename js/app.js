@@ -199,7 +199,9 @@ function handleBikeData(event) {
     // If we have a previous point, check if we've moved at least MIN_MOVE_METERS.
     // If it's our very first point, or we've moved past the threshold, record it.
     let shouldLog = false;
-    if (lastLoggedLat === null || lastLoggedLon === null) {
+    if (isHexEnabled) {
+        shouldLog = true;
+    } else if (lastLoggedLat === null || lastLoggedLon === null) {
         shouldLog = true;
     } else {
         let distance = getDistanceFromLatLonInMeters(lastLoggedLat, lastLoggedLon, currentLat, currentLon);
