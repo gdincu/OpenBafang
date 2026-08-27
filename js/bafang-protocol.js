@@ -1,5 +1,5 @@
 export const BAFANG_COMMANDS = {
-    PAS: 0x4A,
+    PAS: 0x89,      // 137 decimal (Write Control command ID for PAS)
     LIGHT: 0x40,
     BATTERY: 0x64,
     SPEED: 0x44,
@@ -16,7 +16,7 @@ export function decodeBafangPacket(buffer) {
     let result = { type: null, value: null };
 
     switch (cmdId) {
-        case BAFANG_COMMANDS.PAS:
+        case 0x4A: // 74 decimal (Feedback telemetry for PAS level)
             result = { type: 'pas', value: buffer[4] };
             break;
         case BAFANG_COMMANDS.LIGHT:
@@ -51,17 +51,27 @@ export function decodeBafangPacket(buffer) {
 }
 
 export function buildLightCommand(turnOn) {
-    return new Uint8Array([0x41, 0x04, 0x40, 0x00, turnOn ? 0x01 : 0x00]);
+    const header = 0x02;
+    const seqByte = 0x01; 
+    const cmdId = BAFANG_COMMANDS.LIGHT; 
+    const length = 0x01;
+    const val = turnOn ? 0x01 : 0x00;
+    
+    const checksum = (seqByte + cmdId + length + val) & 0xFF;
+    const footer = 0x03;
+
+    return new Uint8Array([header, seqByte, cmdId, length, val, checksum, footer]);
 }
 
 export function buildPasCommand(level) {
     const lvl = parseInt(level, 10);
     const header = 0x02;
-    const packetType = 0x01;
-    const cmdId = 0x89; 
+    const seqByte = 0x01; 
+    const cmdId = BAFANG_COMMANDS.PAS; // 0x89 (137 decimal)
     const length = 0x01;
-    const checksum = (header + packetType + cmdId + length + lvl) & 0xFF;
+    
+    const checksum = (seqByte + cmdId + length + lvl) & 0xFF;
     const footer = 0x03;
 
-    return new Uint8Array([header, packetType, cmdId, length, lvl, checksum, footer]);
+    return new Uint8Array([header, seqByte, cmdId, length, lvl, checksum, footer]);
 }
