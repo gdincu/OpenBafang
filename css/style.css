@@ -152,7 +152,7 @@ pre {
     justify-content: center;
     align-items: center;
     color: white;
-    touch-action: none; /* Prevents pull-to-refresh or scrolling */
+    touch-action: pan-y; /* Prevents pull-to-refresh or scrolling */
 }
 
 .unlock-slider {
