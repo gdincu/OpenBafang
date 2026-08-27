@@ -216,7 +216,8 @@ function handleBikeData(event) {
             timestamp: new Date().toISOString(),
             lat: currentLat,
             lon: currentLon,
-            altitude_m: currentAltitude.toFixed(1)
+            altitude_m: currentAltitude.toFixed(1),
+			rawHex: logHexVal
         };
 
         if (document.getElementById('chk_speed').checked) dataPoint.speed = currentSpeed;
