@@ -129,6 +129,32 @@ function onDisconnected() {
     checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
 }
 
+// Screen Lock / Unlock Logic
+const lockScreenBtn = document.getElementById('lockScreenBtn');
+const touchLockOverlay = document.getElementById('touchLockOverlay');
+const unlockSlider = document.getElementById('unlockSlider');
+
+// Show the overlay when the lock button is pressed
+lockScreenBtn.addEventListener('click', () => {
+    touchLockOverlay.style.display = 'flex';
+    unlockSlider.value = 0; // Reset slider position
+});
+
+// Continuously check the slider value as the user drags it
+unlockSlider.addEventListener('input', (e) => {
+    if (e.target.value >= 95) { // If dragged 95% of the way to the right
+        touchLockOverlay.style.display = 'none'; // Hide overlay
+        e.target.value = 0; // Reset for next time
+    }
+});
+
+// If the user lets go before reaching the end, snap it back to zero
+unlockSlider.addEventListener('change', (e) => {
+    if (e.target.value < 95) {
+        e.target.value = 0;
+    }
+});
+
 // Decode Telemetry & Evaluate Smart Logging Filter
 function handleBikeData(event) {
     const buffer = new Uint8Array(event.target.value.buffer);
