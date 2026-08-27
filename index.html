@@ -130,9 +130,13 @@
     </button>
 	
 	<div id="touchLockOverlay" class="touch-lock-overlay">
-        <div style="font-size: 24px; font-weight: bold; margin-bottom: 20px;">Screen Locked</div>
-        <div style="font-size: 14px; margin-bottom: 40px;">Logging is active. Screen will stay on.</div>
+        <!-- Live Data on Lock Screen -->
+        <div style="font-size: 64px; font-weight: bold; margin-bottom: 5px;" id="lockSpeedDisplay">-- km/h</div>
+        <div style="font-size: 28px; color: #4caf50; font-weight: bold; margin-bottom: 40px;" id="lockBattDisplay">-- %</div>
         
+        <div style="font-size: 14px; margin-bottom: 40px; color: #aaa;">Logging Active • Screen Locked</div>
+        
+        <!-- Unlock Slider -->
         <input type="range" id="unlockSlider" min="0" max="100" value="0" class="unlock-slider">
         <div style="margin-top: 10px; font-size: 14px; color: #ccc;">Slide right to unlock</div>
     </div>

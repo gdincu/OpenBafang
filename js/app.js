@@ -165,8 +165,16 @@ function handleBikeData(event) {
 
     if (decoded.type === 'pas') { currentPas = decoded.value; document.getElementById('pasDisplay').innerText = currentPas; }
     if (decoded.type === 'light') { currentLight = decoded.value; document.getElementById('lightDisplay').innerText = currentLight; }
-    if (decoded.type === 'battery') { currentBattery = decoded.value; document.getElementById('battDisplay').innerText = `${currentBattery}%`; }
-    if (decoded.type === 'speed') { currentSpeed = decoded.value; document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`; }
+    if (decoded.type === 'battery') { 
+        currentBattery = decoded.value; 
+        document.getElementById('battDisplay').innerText = `${currentBattery}%`; 
+        document.getElementById('lockBattDisplay').innerText = `${currentBattery}%`; // Updates lock screen
+    }
+    if (decoded.type === 'speed') { 
+        currentSpeed = decoded.value; 
+        document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`; 
+        document.getElementById('lockSpeedDisplay').innerText = `${currentSpeed} km/h`; // Updates lock screen
+    }
     if (decoded.type === 'trip') { currentTrip = decoded.value; document.getElementById('tripDisplay').innerText = `${currentTrip} km`; }
     if (decoded.type === 'range') { currentRange = decoded.value; document.getElementById('rangeDisplay').innerText = `${currentRange} km`; }
     if (decoded.type === 'torque') { currentTorque = decoded.value; document.getElementById('torqueDisplay').innerText = currentTorque; }
