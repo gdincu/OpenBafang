@@ -55,5 +55,13 @@ export function buildLightCommand(turnOn) {
 }
 
 export function buildPasCommand(level) {
-    return new Uint8Array([0x41, 0x04, 0x4A, 0x00, parseInt(level)]);
+    const lvl = parseInt(level, 10);
+    const header = 0x02;
+    const packetType = 0x01;
+    const cmdId = 0x89; 
+    const length = 0x01;
+    const checksum = (header + packetType + cmdId + length + lvl) & 0xFF;
+    const footer = 0x03;
+
+    return new Uint8Array([header, packetType, cmdId, length, lvl, checksum, footer]);
 }
