@@ -98,34 +98,11 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         const server = await bleDevice.gatt.connect();
         const service = await server.getPrimaryService('0000fff0-0000-1000-8000-00805f9b34fb');
         
-        // Dynamically discover characteristics to bypass hardcoded fff3/fff4 limits
-        const characteristics = await service.getCharacteristics();
-        let notifyChar = null;
-        bleWriteChar = null;
-
-        characteristics.forEach(characteristic => {
-            const props = characteristic.properties;
-            console.log(`Discovered Characteristic UUID: ${characteristic.uuid}`, props);
-
-            if (props.notify || props.indicate) {
-                notifyChar = characteristic;
-            }
-            if (props.write || props.writeWithoutResponse) {
-                bleWriteChar = characteristic;
-            }
-        });
-
-        if (!notifyChar) {
-            throw new Error("No notification characteristic found on this Bafang service!");
-        }
+        const notifyChar = await service.getCharacteristic('0000fff4-0000-1000-8000-00805f9b34fb');
+        bleWriteChar = await service.getCharacteristic('0000fff3-0000-1000-8000-00805f9b34fb');
 
         await notifyChar.startNotifications();
         notifyChar.addEventListener('characteristicvaluechanged', handleBikeData);
-
-        // Fallback if no dedicated write characteristic was discovered
-        if (!bleWriteChar) {
-            bleWriteChar = notifyChar;
-        }
 		
         document.getElementById('status').innerHTML = `Status: <span class="status-badge status-connected">Connected</span>`;
         document.getElementById('exportBtn').disabled = false;
