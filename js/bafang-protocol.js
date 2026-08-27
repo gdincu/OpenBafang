@@ -49,29 +49,3 @@ export function decodeBafangPacket(buffer) {
     }
     return result;
 }
-
-export function buildLightCommand(turnOn) {
-    const header = 0x02;
-    const seqByte = 0x01; 
-    const cmdId = BAFANG_COMMANDS.LIGHT; 
-    const length = 0x01;
-    const val = turnOn ? 0x01 : 0x00;
-    
-    const checksum = (seqByte + cmdId + length + val) & 0xFF;
-    const footer = 0x03;
-
-    return new Uint8Array([header, seqByte, cmdId, length, val, checksum, footer]);
-}
-
-export function buildPasCommand(level) {
-    const lvl = parseInt(level, 10);
-    const header = 0x02;
-    const seqByte = 0x01; 
-    const cmdId = BAFANG_COMMANDS.PAS; // 0x89 (137 decimal)
-    const length = 0x01;
-    
-    const checksum = (seqByte + cmdId + length + lvl) & 0xFF;
-    const footer = 0x03;
-
-    return new Uint8Array([header, seqByte, cmdId, length, lvl, checksum, footer]);
-}

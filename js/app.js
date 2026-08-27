@@ -1,4 +1,4 @@
-import { decodeBafangPacket, buildLightCommand, buildPasCommand } from './bafang-protocol.js';
+import { decodeBafangPacket } from './bafang-protocol.js';
 
 let rideData = [];
 let currentLat = 0, currentLon = 0, currentAltitude = 0;
@@ -6,7 +6,6 @@ let lastLoggedLat = null, lastLoggedLon = null;
 let recentHexLogs = [];
 let wakeLock = null;
 let bleDevice = null;
-let bleWriteChar = null;
 
 let currentPas = "--", currentSpeed = "--", currentOdo = "--";
 let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
@@ -97,9 +96,7 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
 
         const server = await bleDevice.gatt.connect();
         const service = await server.getPrimaryService('0000fff0-0000-1000-8000-00805f9b34fb');
-        
         const notifyChar = await service.getCharacteristic('0000fff4-0000-1000-8000-00805f9b34fb');
-        bleWriteChar = await service.getCharacteristic('0000fff3-0000-1000-8000-00805f9b34fb');
 
         await notifyChar.startNotifications();
         notifyChar.addEventListener('characteristicvaluechanged', handleBikeData);
@@ -108,7 +105,6 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         document.getElementById('exportBtn').disabled = false;
         document.getElementById('connectBtn').style.display = 'none';
         document.getElementById('disconnectBtn').style.display = 'block';
-		document.getElementById('controlPanel').style.display = 'block';
         
         await requestWakeLock();
     } catch (error) {
@@ -127,38 +123,11 @@ function onDisconnected() {
     document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">Disconnected</span>`;
     document.getElementById('connectBtn').style.display = 'block';
     document.getElementById('disconnectBtn').style.display = 'none';
-	document.getElementById('controlPanel').style.display = 'none';
     releaseWakeLock();
     
     const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
     checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
 }
-
-document.getElementById('toggleLightBtn').addEventListener('click', async () => {
-    if (!bleWriteChar) return;
-    try {
-        const turnOn = currentLight !== "ON";
-        const packet = buildLightCommand(turnOn);
-        await bleWriteChar.writeValueWithoutResponse(packet);
-        console.log("Light command sent:", turnOn ? "ON" : "OFF");
-    } catch (err) {
-        console.error("Failed to send headlight command:", err);
-    }
-});
-
-document.querySelectorAll('.pas-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-        if (!bleWriteChar) return;
-        try {
-            const level = e.target.getAttribute('data-level');
-            const packet = buildPasCommand(level);
-            await bleWriteChar.writeValueWithoutResponse(packet);
-            console.log("PAS level command sent:", level);
-        } catch (err) {
-            console.error("Failed to send PAS command:", err);
-        }
-    });
-});
 
 // Decode Telemetry & Evaluate Smart Logging Filter
 function handleBikeData(event) {
