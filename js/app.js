@@ -113,6 +113,7 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         document.getElementById('exportBtn').disabled = false;
         document.getElementById('connectBtn').style.display = 'none';
         document.getElementById('disconnectBtn').style.display = 'block';
+		document.getElementById('controlPanel').style.display = 'block';
         
         await requestWakeLock();
     } catch (error) {
@@ -131,6 +132,7 @@ function onDisconnected() {
     document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">Disconnected</span>`;
     document.getElementById('connectBtn').style.display = 'block';
     document.getElementById('disconnectBtn').style.display = 'none';
+	document.getElementById('controlPanel').style.display = 'none';
     releaseWakeLock();
     
     const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
