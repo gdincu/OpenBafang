@@ -1,6 +1,7 @@
 import { decodeBafangPacket } from './bafang-protocol.js';
 
 let rideData = [];
+let lastLoggedTime = 0;
 let currentLat = 0, currentLon = 0, currentAltitude = 0;
 let lastLoggedLat = null, lastLoggedLon = null;
 let recentHexLogs = [];
@@ -11,8 +12,10 @@ let currentPas = "--", currentSpeed = "--", currentOdo = "--";
 let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
 let currentTrip = "--", currentRange = "--", currentTorque = "--";
 let currentLight = "--";
+let currentAccuracy = 999;
 
-const MIN_MOVE_METERS = 3; // Minimum distance change required to log a new position update
+const MAX_ACCURACY_METERS = 20;
+const MIN_MOVE_METERS = 3;
 
 function updateDisplayVisibility() {
     const metrics = ['speed', 'battery', 'pas', 'voltage', 'range', 'trip', 'odo', 'torque', 'temp', 'light'];
@@ -64,12 +67,14 @@ navigator.geolocation.watchPosition(
         currentLat = position.coords.latitude;
         currentLon = position.coords.longitude;
         currentAltitude = position.coords.altitude !== null ? position.coords.altitude : 0;
+        currentAccuracy = position.coords.accuracy; // Capture accuracy
         
         const gpsEl = document.getElementById('gpsDisplay');
-        gpsEl.innerHTML = `GPS: <span class="status-badge status-ok">OK</span>`;
+        gpsEl.innerHTML = `GPS: <span class="status-badge status-ok">OK (±${Math.round(currentAccuracy)}m)</span>`;
     },
     (err) => {
         console.error("GPS Error:", err);
+        currentAccuracy = Infinity; // Invalidate accuracy on error
         const gpsEl = document.getElementById('gpsDisplay');
         gpsEl.innerHTML = `GPS: <span class="status-badge status-searching">Searching</span>`;
     },
@@ -197,7 +202,13 @@ function handleBikeData(event) {
     // If we have a previous point, check if we've moved at least MIN_MOVE_METERS.
     // If it's our very first point, or we've moved past the threshold, record it.
     let shouldLog = false;
-    if (isHexEnabled) {
+	let now = Date.now();
+	
+    if (now - lastLoggedTime < 1000) {
+        shouldLog = false;
+    } else if (currentAccuracy > MAX_ACCURACY_METERS) {
+        shouldLog = false;
+    } else if (isHexEnabled) {
         shouldLog = true;
     } else if (lastLoggedLat === null || lastLoggedLon === null) {
         shouldLog = true;
