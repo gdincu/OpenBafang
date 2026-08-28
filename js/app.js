@@ -14,8 +14,23 @@ let currentTrip = "--", currentRange = "--", currentTorque = "--";
 let currentLight = "--";
 let currentAccuracy = 999;
 
-const MAX_ACCURACY_METERS = 20;
+const MAX_ACCURACY_METERS = 25;
 const MIN_MOVE_METERS = 3;
+const MAX_IDLE_TIME_MS = 5000; // Force a log every 5 seconds even if stationary
+
+// Check for unsaved ride data recovery on page load
+window.onload = () => {
+    const backup = localStorage.getItem('ride_data_backup');
+    if (backup) {
+        const recoveredData = JSON.parse(backup);
+        if (recoveredData.length > 0 && confirm(`Found ${recoveredData.length} unsaved points from a previous session. Download them now?`)) {
+            rideData = recoveredData;
+            downloadCSV();
+        } else {
+            localStorage.removeItem('ride_data_backup');
+        }
+    }
+};
 
 function updateDisplayVisibility() {
     const metrics = ['speed', 'battery', 'pas', 'voltage', 'range', 'trip', 'odo', 'torque', 'temp', 'light'];
@@ -61,13 +76,13 @@ function deg2rad(deg) {
     return deg * (Math.PI / 180);
 }
 
-// GPS Tracking with status indicators
+									  
 navigator.geolocation.watchPosition(
     (position) => {
         currentLat = position.coords.latitude;
         currentLon = position.coords.longitude;
         currentAltitude = position.coords.altitude !== null ? position.coords.altitude : 0;
-        currentAccuracy = position.coords.accuracy; // Capture accuracy
+        currentAccuracy = position.coords.accuracy;
         
         const gpsEl = document.getElementById('gpsDisplay');
         gpsEl.innerHTML = `GPS: <span class="status-badge status-ok">OK (±${Math.round(currentAccuracy)}m)</span>`;
@@ -78,11 +93,11 @@ navigator.geolocation.watchPosition(
         const gpsEl = document.getElementById('gpsDisplay');
         gpsEl.innerHTML = `GPS: <span class="status-badge status-searching">Searching</span>`;
     },
-    { 
-        enableHighAccuracy: true, 
-        timeout: 15000, 
-        maximumAge: 10000 
-    }
+	  
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+						
+						  
+	 
 );
 
 document.getElementById('connectBtn').addEventListener('click', async () => {
@@ -130,7 +145,7 @@ function onDisconnected() {
     document.getElementById('disconnectBtn').style.display = 'none';
     releaseWakeLock();
 	
-	if (rideData.length > 0) {
+    if (rideData.length > 0) {
         downloadCSV();
     }
     
@@ -159,17 +174,20 @@ function downloadCSV() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    // Clear backup after successful download
+    localStorage.removeItem('ride_data_backup');
 }
 
-// Button listener calls the reusable function
+											  
 document.getElementById('exportBtn').addEventListener('click', downloadCSV);
 
-// Screen Lock / Unlock Logic
+// Screen Lock Logic / Unlock Logic
 const lockScreenBtn = document.getElementById('lockScreenBtn');
 const touchLockOverlay = document.getElementById('touchLockOverlay');
 const unlockSlider = document.getElementById('unlockSlider');
 
-// Show the overlay when the lock button is pressed
+												   
 lockScreenBtn.addEventListener('click', () => {
     touchLockOverlay.style.display = 'flex';
     unlockSlider.value = 0; // Reset slider position
@@ -183,19 +201,19 @@ unlockSlider.addEventListener('input', (e) => {
     }
 });
 
-// If the user lets go before reaching the end, snap it back to zero
+																	
 unlockSlider.addEventListener('change', (e) => {
     if (e.target.value < 95) {
         e.target.value = 0;
     }
 });
 
-// Decode Telemetry & Evaluate Smart Logging Filter
+												   
 function handleBikeData(event) {
     const buffer = new Uint8Array(event.target.value.buffer);
     const hexString = Array.from(buffer).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
 
-    // Decode packet via external protocol module
+												 
     const decoded = decodeBafangPacket(buffer);
 
     if (decoded.type === 'pas') { currentPas = decoded.value; document.getElementById('pasDisplay').innerText = currentPas; }
@@ -228,15 +246,13 @@ function handleBikeData(event) {
         document.getElementById('consoleOutput').innerText = "Logging is disabled.";
     }
 
-    // Smart Logging Filter Check:
+	// Smart Logging Filter Check:
     // If we have a previous point, check if we've moved at least MIN_MOVE_METERS.
-    // If it's our very first point, or we've moved past the threshold, record it.
+    // If it's our very first point, or we've moved past the threshold, record it.							  
     let shouldLog = false;
-	let now = Date.now();
-	
-    if (now - lastLoggedTime < 1000) {
-        shouldLog = false;
-    } else if (currentAccuracy > MAX_ACCURACY_METERS) {
+    let now = Date.now();
+    // 1. Time throttle (minimum 1 second between points) & Accuracy filter
+    if (now - lastLoggedTime < 1000 || currentAccuracy > MAX_ACCURACY_METERS) {
         shouldLog = false;
     } else if (isHexEnabled) {
         shouldLog = true;
@@ -244,13 +260,16 @@ function handleBikeData(event) {
         shouldLog = true;
     } else {
         let distance = getDistanceFromLatLonInMeters(lastLoggedLat, lastLoggedLon, currentLat, currentLon);
-        if (distance >= MIN_MOVE_METERS) {
+        let timeSinceLastLog = now - lastLoggedTime;
+
+        // 2. Optimized Filter: Log if moved far enough OR stayed idle too long (e.g. at a traffic light)
+        if (distance >= MIN_MOVE_METERS || timeSinceLastLog >= MAX_IDLE_TIME_MS) {
             shouldLog = true;
         }
     }
 
     if (shouldLog) {
-		lastLoggedTime = now;
+        lastLoggedTime = now;
         lastLoggedLat = currentLat;
         lastLoggedLon = currentLon;
 
@@ -259,7 +278,7 @@ function handleBikeData(event) {
             lat: currentLat,
             lon: currentLon,
             altitude_m: currentAltitude.toFixed(1),
-			rawHex: logHexVal
+            rawHex: logHexVal
         };
 
         if (document.getElementById('chk_speed').checked) dataPoint.speed = currentSpeed;
@@ -275,10 +294,13 @@ function handleBikeData(event) {
         if (isHexEnabled) dataPoint.rawHex = logHexVal;
 
         rideData.push(dataPoint);
+
+        // Save progress to localStorage periodically to prevent data loss on browser crash
+        localStorage.setItem('ride_data_backup', JSON.stringify(rideData));
     }
 }
 
-// Register Service Worker for PWA Caching
+// Register Service Worker for PWA Caching									  
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
