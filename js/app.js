@@ -129,10 +129,40 @@ function onDisconnected() {
     document.getElementById('connectBtn').style.display = 'block';
     document.getElementById('disconnectBtn').style.display = 'none';
     releaseWakeLock();
+	
+	if (rideData.length > 0) {
+        downloadCSV();
+    }
     
     const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
     checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
 }
+
+function downloadCSV() {
+    if (rideData.length === 0) return;
+
+    const keys = Object.keys(rideData[0]);
+    let csvContent = "data:text/csv;charset=utf-8," + keys.join(",") + "\n";
+    
+    rideData.forEach(row => {
+        let line = keys.map(key => {
+            let val = row[key] !== undefined ? row[key] : "";
+            return typeof val === 'string' && val.includes(',') ? `"${val}"` : val;
+        });
+        csvContent += line.join(",") + "\n";
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `bafang_ride_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Button listener calls the reusable function
+document.getElementById('exportBtn').addEventListener('click', downloadCSV);
 
 // Screen Lock / Unlock Logic
 const lockScreenBtn = document.getElementById('lockScreenBtn');
@@ -220,6 +250,7 @@ function handleBikeData(event) {
     }
 
     if (shouldLog) {
+		lastLoggedTime = now;
         lastLoggedLat = currentLat;
         lastLoggedLon = currentLon;
 
@@ -246,28 +277,6 @@ function handleBikeData(event) {
         rideData.push(dataPoint);
     }
 }
-
-document.getElementById('exportBtn').addEventListener('click', () => {
-    if (rideData.length === 0) return;
-
-    const keys = Object.keys(rideData[0]);
-    let csvContent = "data:text/csv;charset=utf-8," + keys.join(",") + "\n";
-    
-    rideData.forEach(row => {
-        let line = keys.map(key => {
-            let val = row[key] !== undefined ? row[key] : "";
-            return typeof val === 'string' && val.includes(',') ? `"${val}"` : val;
-        });
-        csvContent += line.join(",") + "\n";
-    });
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `bafang_ride_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-});
 
 // Register Service Worker for PWA Caching
 if ('serviceWorker' in navigator) {
