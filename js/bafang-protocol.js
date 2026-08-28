@@ -73,8 +73,14 @@ export function decodeBafangPacket(buffer) {
             result = { type: 'bmsFullMah', value: (buffer[4] << 8) | buffer[5] };
             break;
         case BAFANG_COMMANDS.BMS_CYCLES:
-            // 2-byte value for total lifetime charge cycles
-            result = { type: 'bmsCycles', value: (buffer[4] << 8) | buffer[5] };
+            // Adapt to different BMS firmware payload lengths (1 or 2 bytes)
+            let cycleCount = 0;
+            if (buffer[3] === 1) {
+                cycleCount = buffer[4];
+            } else if (buffer[3] >= 2) {
+                cycleCount = (buffer[4] << 8) | buffer[5];
+            }
+            result = { type: 'bmsCycles', value: cycleCount };
             break;
         case BAFANG_COMMANDS.MAX_PAS_LEVELS:
             // 1-byte value defining the upper limit of the PAS configuration
