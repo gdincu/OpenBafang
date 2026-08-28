@@ -11,7 +11,9 @@ let bleDevice = null;
 let currentPas = "--", currentSpeed = "--", currentOdo = "--";
 let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
 let currentTrip = "--", currentRange = "--", currentTorque = "--";
-let currentLight = "--";
+let currentCadence = "--", currentCurrent = "--", currentBmsRelPct = "--";
+let currentBmsRemainMah = "--", currentBmsFullMah = "--", currentBmsCycles = "--";
+let currentMaxPasLevels = "--", currentLight = "--";
 let currentAccuracy = 999;
 
 const MAX_ACCURACY_METERS = 25;
@@ -33,7 +35,11 @@ window.onload = () => {
 };
 
 function updateDisplayVisibility() {
-    const metrics = ['speed', 'battery', 'pas', 'voltage', 'range', 'trip', 'odo', 'torque', 'temp', 'light'];
+    const metrics = [
+        'speed', 'battery', 'pas', 'voltage', 'range', 'trip', 'odo', 
+        'torque', 'cadence', 'current', 'bmsRelPct', 'bmsRemainMah', 
+        'bmsFullMah', 'bmsCycles', 'maxPasLevels', 'temp', 'light'
+    ];
     metrics.forEach(m => {
         const checkbox = document.getElementById(`chk_${m}`);
         const box = document.getElementById(`box_${m}`);
@@ -76,7 +82,7 @@ function deg2rad(deg) {
     return deg * (Math.PI / 180);
 }
 
-									  
+		   
 navigator.geolocation.watchPosition(
     (position) => {
         currentLat = position.coords.latitude;
@@ -93,11 +99,11 @@ navigator.geolocation.watchPosition(
         const gpsEl = document.getElementById('gpsDisplay');
         gpsEl.innerHTML = `GPS: <span class="status-badge status-searching">Searching</span>`;
     },
-	  
+   
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-						
-						  
-	 
+	  
+		
+  
 );
 
 document.getElementById('connectBtn').addEventListener('click', async () => {
@@ -120,7 +126,7 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
 
         await notifyChar.startNotifications();
         notifyChar.addEventListener('characteristicvaluechanged', handleBikeData);
-		
+        
         document.getElementById('status').innerHTML = `Status: <span class="status-badge status-connected">Connected</span>`;
         document.getElementById('exportBtn').disabled = false;
         document.getElementById('connectBtn').style.display = 'none';
@@ -144,7 +150,7 @@ function onDisconnected() {
     document.getElementById('connectBtn').style.display = 'block';
     document.getElementById('disconnectBtn').style.display = 'none';
     releaseWakeLock();
-	
+    
     if (rideData.length > 0) {
         downloadCSV();
     }
@@ -179,7 +185,7 @@ function downloadCSV() {
     localStorage.removeItem('ride_data_backup');
 }
 
-											  
+			 
 document.getElementById('exportBtn').addEventListener('click', downloadCSV);
 
 // Screen Lock Logic / Unlock Logic
@@ -187,7 +193,7 @@ const lockScreenBtn = document.getElementById('lockScreenBtn');
 const touchLockOverlay = document.getElementById('touchLockOverlay');
 const unlockSlider = document.getElementById('unlockSlider');
 
-												   
+			   
 lockScreenBtn.addEventListener('click', () => {
     touchLockOverlay.style.display = 'flex';
     unlockSlider.value = 0; // Reset slider position
@@ -201,19 +207,19 @@ unlockSlider.addEventListener('input', (e) => {
     }
 });
 
-																	
+																				  
 unlockSlider.addEventListener('change', (e) => {
     if (e.target.value < 95) {
         e.target.value = 0;
     }
 });
 
-												   
+			   
 function handleBikeData(event) {
     const buffer = new Uint8Array(event.target.value.buffer);
     const hexString = Array.from(buffer).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
 
-												 
+			 
     const decoded = decodeBafangPacket(buffer);
 
     if (decoded.type === 'pas') { currentPas = decoded.value; document.getElementById('pasDisplay').innerText = currentPas; }
@@ -234,6 +240,14 @@ function handleBikeData(event) {
     if (decoded.type === 'voltage') { currentVoltage = decoded.value; document.getElementById('voltDisplay').innerText = `${currentVoltage} V`; }
     if (decoded.type === 'temp') { currentTemp = decoded.value; document.getElementById('tempDisplay').innerText = `${currentTemp} °C`; }
     if (decoded.type === 'odo') { currentOdo = decoded.value; document.getElementById('odoDisplay').innerText = `${currentOdo} km`; }
+    
+    if (decoded.type === 'cadence') { currentCadence = decoded.value; document.getElementById('cadenceDisplay').innerText = `${currentCadence} rpm`; }
+    if (decoded.type === 'current') { currentCurrent = decoded.value; document.getElementById('currentDisplay').innerText = `${currentCurrent} mA`; }
+    if (decoded.type === 'bmsRelPct') { currentBmsRelPct = decoded.value; document.getElementById('bmsRelPctDisplay').innerText = `${currentBmsRelPct} %`; }
+    if (decoded.type === 'bmsRemainMah') { currentBmsRemainMah = decoded.value; document.getElementById('bmsRemainMahDisplay').innerText = `${currentBmsRemainMah} mAh`; }
+    if (decoded.type === 'bmsFullMah') { currentBmsFullMah = decoded.value; document.getElementById('bmsFullMahDisplay').innerText = `${currentBmsFullMah} mAh`; }
+    if (decoded.type === 'bmsCycles') { currentBmsCycles = decoded.value; document.getElementById('bmsCyclesDisplay').innerText = currentBmsCycles; }
+    if (decoded.type === 'maxPasLevels') { currentMaxPasLevels = decoded.value; document.getElementById('maxPasLevelsDisplay').innerText = currentMaxPasLevels; }
 
     let logHexVal = "";
     const isHexEnabled = document.getElementById('toggleHex').checked;
@@ -246,9 +260,9 @@ function handleBikeData(event) {
         document.getElementById('consoleOutput').innerText = "Logging is disabled.";
     }
 
-	// Smart Logging Filter Check:
-    // If we have a previous point, check if we've moved at least MIN_MOVE_METERS.
-    // If it's our very first point, or we've moved past the threshold, record it.							  
+    // Smart Logging Filter Check:
+																				  
+																						   
     let shouldLog = false;
     let now = Date.now();
     // 1. Time throttle (minimum 1 second between points) & Accuracy filter
@@ -262,7 +276,7 @@ function handleBikeData(event) {
         let distance = getDistanceFromLatLonInMeters(lastLoggedLat, lastLoggedLon, currentLat, currentLon);
         let timeSinceLastLog = now - lastLoggedTime;
 
-        // 2. Optimized Filter: Log if moved far enough OR stayed idle too long (e.g. at a traffic light)
+        // 2. Optimized Filter: Log if moved far enough OR stayed idle too long
         if (distance >= MIN_MOVE_METERS || timeSinceLastLog >= MAX_IDLE_TIME_MS) {
             shouldLog = true;
         }
@@ -291,6 +305,14 @@ function handleBikeData(event) {
         if (document.getElementById('chk_trip').checked) dataPoint.trip = currentTrip;
         if (document.getElementById('chk_torque').checked) dataPoint.torque = currentTorque;
         if (document.getElementById('chk_light').checked) dataPoint.light = currentLight;
+        if (document.getElementById('chk_cadence').checked) dataPoint.cadence = currentCadence;
+        if (document.getElementById('chk_current').checked) dataPoint.current = currentCurrent;
+        if (document.getElementById('chk_bmsRelPct').checked) dataPoint.bmsRelPct = currentBmsRelPct;
+        if (document.getElementById('chk_bmsRemainMah').checked) dataPoint.bmsRemainMah = currentBmsRemainMah;
+        if (document.getElementById('chk_bmsFullMah').checked) dataPoint.bmsFullMah = currentBmsFullMah;
+        if (document.getElementById('chk_bmsCycles').checked) dataPoint.bmsCycles = currentBmsCycles;
+        if (document.getElementById('chk_maxPasLevels').checked) dataPoint.maxPasLevels = currentMaxPasLevels;
+        
         if (isHexEnabled) dataPoint.rawHex = logHexVal;
 
         rideData.push(dataPoint);
@@ -300,7 +322,7 @@ function handleBikeData(event) {
     }
 }
 
-// Register Service Worker for PWA Caching									  
+// Register Service Worker for PWA Caching                                      
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
