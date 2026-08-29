@@ -10,10 +10,10 @@ let bleDevice = null;
 
 let currentPas = "--", currentSpeed = "--", currentOdo = "--";
 let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
-let currentTrip = "--", currentRange = "--", currentTorque = "--";
-let currentCadence = "--", currentCurrent = "--", currentBmsRelPct = "--";
-let currentBmsRemainMah = "--", currentBmsFullMah = "--", currentBmsCycles = "--";
-let currentMaxPasLevels = "--", currentLight = "--";
+let currentTrip = "--", currentRange = "--";
+let currentCurrent = "--", currentBmsRelPct = "--";
+let currentBmsRemainMah = "--", currentBmsFullMah = "--";
+let currentLight = "--";
 let currentAccuracy = 999;
 
 const MAX_ACCURACY_METERS = 25;
@@ -37,8 +37,8 @@ window.onload = () => {
 function updateDisplayVisibility() {
     const metrics = [
         'speed', 'battery', 'pas', 'voltage', 'range', 'trip', 'odo', 
-        'torque', 'cadence', 'current', 'bmsRelPct', 'bmsRemainMah', 
-        'bmsFullMah', 'bmsCycles', 'maxPasLevels', 'temp', 'light'
+        'current', 'bmsRelPct', 'bmsRemainMah', 
+        'bmsFullMah', 'temp', 'light'
     ];
     metrics.forEach(m => {
         const checkbox = document.getElementById(`chk_${m}`);
@@ -236,18 +236,13 @@ function handleBikeData(event) {
     }
     if (decoded.type === 'trip') { currentTrip = decoded.value; document.getElementById('tripDisplay').innerText = `${currentTrip} km`; }
     if (decoded.type === 'range') { currentRange = decoded.value; document.getElementById('rangeDisplay').innerText = `${currentRange} km`; }
-    if (decoded.type === 'torque') { currentTorque = decoded.value; document.getElementById('torqueDisplay').innerText = currentTorque; }
     if (decoded.type === 'voltage') { currentVoltage = decoded.value; document.getElementById('voltDisplay').innerText = `${currentVoltage} V`; }
     if (decoded.type === 'temp') { currentTemp = decoded.value; document.getElementById('tempDisplay').innerText = `${currentTemp} °C`; }
     if (decoded.type === 'odo') { currentOdo = decoded.value; document.getElementById('odoDisplay').innerText = `${currentOdo} km`; }
-    
-    if (decoded.type === 'cadence') { currentCadence = decoded.value; document.getElementById('cadenceDisplay').innerText = `${currentCadence} rpm`; }
     if (decoded.type === 'current') { currentCurrent = decoded.value; document.getElementById('currentDisplay').innerText = `${currentCurrent} mA`; }
     if (decoded.type === 'bmsRelPct') { currentBmsRelPct = decoded.value; document.getElementById('bmsRelPctDisplay').innerText = `${currentBmsRelPct} %`; }
     if (decoded.type === 'bmsRemainMah') { currentBmsRemainMah = decoded.value; document.getElementById('bmsRemainMahDisplay').innerText = `${currentBmsRemainMah} mAh`; }
     if (decoded.type === 'bmsFullMah') { currentBmsFullMah = decoded.value; document.getElementById('bmsFullMahDisplay').innerText = `${currentBmsFullMah} mAh`; }
-    if (decoded.type === 'bmsCycles') { currentBmsCycles = decoded.value; document.getElementById('bmsCyclesDisplay').innerText = currentBmsCycles; }
-    if (decoded.type === 'maxPasLevels') { currentMaxPasLevels = decoded.value; document.getElementById('maxPasLevelsDisplay').innerText = currentMaxPasLevels; }
 
     let logHexVal = "";
     const isHexEnabled = document.getElementById('toggleHex').checked;
@@ -303,15 +298,11 @@ function handleBikeData(event) {
         if (document.getElementById('chk_voltage').checked) dataPoint.voltage = currentVoltage;
         if (document.getElementById('chk_range').checked) dataPoint.range = currentRange;
         if (document.getElementById('chk_trip').checked) dataPoint.trip = currentTrip;
-        if (document.getElementById('chk_torque').checked) dataPoint.torque = currentTorque;
         if (document.getElementById('chk_light').checked) dataPoint.light = currentLight;
-        if (document.getElementById('chk_cadence').checked) dataPoint.cadence = currentCadence;
         if (document.getElementById('chk_current').checked) dataPoint.current = currentCurrent;
         if (document.getElementById('chk_bmsRelPct').checked) dataPoint.bmsRelPct = currentBmsRelPct;
         if (document.getElementById('chk_bmsRemainMah').checked) dataPoint.bmsRemainMah = currentBmsRemainMah;
         if (document.getElementById('chk_bmsFullMah').checked) dataPoint.bmsFullMah = currentBmsFullMah;
-        if (document.getElementById('chk_bmsCycles').checked) dataPoint.bmsCycles = currentBmsCycles;
-        if (document.getElementById('chk_maxPasLevels').checked) dataPoint.maxPasLevels = currentMaxPasLevels;
         
         if (isHexEnabled) dataPoint.rawHex = logHexVal;
 

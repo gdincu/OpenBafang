@@ -5,17 +5,13 @@ export const BAFANG_COMMANDS = {
 	ODO: 0x46,
     TRIP: 0x47,
     RANGE: 0x71,
-	CADENCE: 0xD2,
-    TORQUE: 0xD3,
     TEMP: 0x60,
 	VOLTAGE: 0x61,
 	CURRENT: 0x62,     // 98 dec (mA)
 	BMS_REL_PCT: 0x63, // 99 dec
 	BATTERY: 0x64,     // General Battery %
 	BMS_REMAIN_MAH: 0x65, // 101 dec
-    BMS_FULL_MAH: 0x66,   // 102 dec
-    BMS_CYCLES: 0x67,     // 103 dec
-	MAX_PAS_LEVELS: 0x72  // 114 dec
+    BMS_FULL_MAH: 0x66   // 102 dec
 };
 
 export function decodeBafangPacket(buffer) {
@@ -41,9 +37,6 @@ export function decodeBafangPacket(buffer) {
         case BAFANG_COMMANDS.RANGE:
             result = { type: 'range', value: (buffer[4] << 8) | buffer[5] };
             break;
-        case BAFANG_COMMANDS.TORQUE:
-            result = { type: 'torque', value: (buffer[4] << 8) | buffer[5] };
-            break;
         case BAFANG_COMMANDS.VOLTAGE:
             result = { type: 'voltage', value: (((buffer[4] << 8) | buffer[5]) / 1000).toFixed(1) };
             break;
@@ -52,9 +45,6 @@ export function decodeBafangPacket(buffer) {
             break;
         case BAFANG_COMMANDS.ODO:
             result = { type: 'odo', value: (buffer[4] << 16) | (buffer[5] << 8) | buffer[6] };
-            break;
-		case BAFANG_COMMANDS.CADENCE:
-            result = { type: 'cadence', value: (buffer[4] << 8) | buffer[5] };
             break;
 		case BAFANG_COMMANDS.CURRENT:
 			// Measured directly in milliamperes (mA)
@@ -71,20 +61,6 @@ export function decodeBafangPacket(buffer) {
         case BAFANG_COMMANDS.BMS_FULL_MAH:
             // 2-byte value for total battery health capacity (mAh)
             result = { type: 'bmsFullMah', value: (buffer[4] << 8) | buffer[5] };
-            break;
-        case BAFANG_COMMANDS.BMS_CYCLES:
-            // Adapt to different BMS firmware payload lengths (1 or 2 bytes)
-            let cycleCount = 0;
-            if (buffer[3] === 1) {
-                cycleCount = buffer[4];
-            } else if (buffer[3] >= 2) {
-                cycleCount = (buffer[4] << 8) | buffer[5];
-            }
-            result = { type: 'bmsCycles', value: cycleCount };
-            break;
-        case BAFANG_COMMANDS.MAX_PAS_LEVELS:
-            // 1-byte value defining the upper limit of the PAS configuration
-            result = { type: 'maxPasLevels', value: buffer[4] };
             break;
     }
     return result;
