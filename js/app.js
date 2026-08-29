@@ -27,7 +27,7 @@ window.onload = () => {
         const recoveredData = JSON.parse(backup);
         if (recoveredData.length > 0 && confirm(`Found ${recoveredData.length} unsaved points from a previous session. Download them now?`)) {
             rideData = recoveredData;
-            downloadCSV();
+            downloadLogs();
         } else {
             localStorage.removeItem('ride_data_backup');
         }
@@ -152,16 +152,21 @@ function onDisconnected() {
     releaseWakeLock();
     
     if (rideData.length > 0) {
-        downloadCSV();
+        downloadLogs();
     }
     
     const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
     checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
 }
 
-function downloadCSV() {
+function downloadLogs() {
     if (rideData.length === 0) return;
 
+    // Generate precise filename: bafang_ride_YYYY-MM-DD_HH-MM-SS
+    const timeStampStr = new Date().toISOString().replace(/T/, '_').replace(/:/g, '-').split('.')[0];
+    const baseFilename = `bafang_ride_${timeStampStr}`;
+
+    // --- 1. GENERATE CSV ---
     const keys = Object.keys(rideData[0]);
     let csvContent = "data:text/csv;charset=utf-8," + keys.join(",") + "\n";
     
@@ -172,21 +177,44 @@ function downloadCSV() {
         });
         csvContent += line.join(",") + "\n";
     });
+    triggerDownload(encodeURI(csvContent), `${baseFilename}.csv`);
+
+    // --- 2. GENERATE GPX ---
+    let gpxContent = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="OpenBafang">\n<trk>\n<name>${baseFilename}</name>\n<trkseg>\n`;
     
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `bafang_ride_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    rideData.forEach(row => {
+        if (row.lat && row.lon) {
+            gpxContent += `  <trkpt lat="${row.lat}" lon="${row.lon}">\n`;
+            if (row.altitude_m) gpxContent += `    <ele>${row.altitude_m}</ele>\n`;
+            gpxContent += `    <time>${row.timestamp}</time>\n`;
+            
+            // Inject e-bike telemetry into the GPX extension node
+            gpxContent += `    <extensions>\n`;
+            if (row.speed !== undefined) gpxContent += `      <speed>${row.speed}</speed>\n`;
+            if (row.battery !== undefined) gpxContent += `      <battery>${row.battery}</battery>\n`;
+            gpxContent += `    </extensions>\n`;
+            gpxContent += `  </trkpt>\n`;
+        }
+    });
+    gpxContent += `</trkseg>\n</trk>\n</gpx>`;
+    
+    const gpxUri = "data:application/gpx+xml;charset=utf-8," + encodeURIComponent(gpxContent);
+    triggerDownload(gpxUri, `${baseFilename}.gpx`);
 
     // Clear backup after successful download
     localStorage.removeItem('ride_data_backup');
 }
 
+function triggerDownload(uri, filename) {
+    const link = document.createElement("a");
+    link.setAttribute("href", uri);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 			 
-document.getElementById('exportBtn').addEventListener('click', downloadCSV);
+document.getElementById('exportBtn').addEventListener('click', downloadLogs);
 
 // Screen Lock Logic / Unlock Logic
 const lockScreenBtn = document.getElementById('lockScreenBtn');
@@ -218,31 +246,54 @@ unlockSlider.addEventListener('change', (e) => {
 function handleBikeData(event) {
     const buffer = new Uint8Array(event.target.value.buffer);
     const hexString = Array.from(buffer).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-
 			 
     const decoded = decodeBafangPacket(buffer);
+	const isLocked = touchLockOverlay.style.display === 'flex';
 
-    if (decoded.type === 'pas') { currentPas = decoded.value; document.getElementById('pasDisplay').innerText = currentPas; }
-    if (decoded.type === 'light') { currentLight = decoded.value; document.getElementById('lightDisplay').innerText = currentLight; }
-    if (decoded.type === 'battery') { 
-        currentBattery = decoded.value; 
-        document.getElementById('battDisplay').innerText = `${currentBattery}%`; 
-        document.getElementById('lockBattDisplay').innerText = `${currentBattery}%`; // Updates lock screen
+    if (decoded.type === 'pas') currentPas = decoded.value;
+    if (decoded.type === 'light') currentLight = decoded.value;
+    if (decoded.type === 'battery') currentBattery = decoded.value;
+    if (decoded.type === 'speed') currentSpeed = decoded.value;
+    if (decoded.type === 'trip') currentTrip = decoded.value;
+    if (decoded.type === 'range') currentRange = decoded.value;
+    if (decoded.type === 'torque') currentTorque = decoded.value;
+    if (decoded.type === 'voltage') currentVoltage = decoded.value;
+    if (decoded.type === 'temp') currentTemp = decoded.value;
+    if (decoded.type === 'odo') currentOdo = decoded.value;
+    if (decoded.type === 'cadence') currentCadence = decoded.value;
+    if (decoded.type === 'current') currentCurrent = decoded.value;
+    if (decoded.type === 'bmsRelPct') currentBmsRelPct = decoded.value;
+    if (decoded.type === 'bmsRemainMah') currentBmsRemainMah = decoded.value;
+    if (decoded.type === 'bmsFullMah') currentBmsFullMah = decoded.value;
+
+	if (isLocked) {
+        if (decoded.type === 'battery') document.getElementById('lockBattDisplay').innerText = `${currentBattery}%`;
+        if (decoded.type === 'speed') document.getElementById('lockSpeedDisplay').innerText = `${currentSpeed} km/h`;
+    } else {
+        if (decoded.type === 'pas') document.getElementById('pasDisplay').innerText = currentPas;
+        if (decoded.type === 'light') document.getElementById('lightDisplay').innerText = currentLight;
+        if (decoded.type === 'battery') {
+            document.getElementById('battDisplay').innerText = `${currentBattery}%`;
+            document.getElementById('lockBattDisplay').innerText = `${currentBattery}%`; 
+        }
+        if (decoded.type === 'speed') {
+            document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`;
+            document.getElementById('lockSpeedDisplay').innerText = `${currentSpeed} km/h`; 
+        }
+        if (decoded.type === 'trip') document.getElementById('tripDisplay').innerText = `${currentTrip} km`;
+        if (decoded.type === 'range') document.getElementById('rangeDisplay').innerText = `${currentRange} km`;
+        if (decoded.type === 'torque') document.getElementById('torqueDisplay').innerText = currentTorque;
+        if (decoded.type === 'voltage') document.getElementById('voltDisplay').innerText = `${currentVoltage} V`;
+        if (decoded.type === 'temp') document.getElementById('tempDisplay').innerText = `${currentTemp} °C`;
+        if (decoded.type === 'odo') document.getElementById('odoDisplay').innerText = `${currentOdo} km`;
+        if (decoded.type === 'cadence') document.getElementById('cadenceDisplay').innerText = `${currentCadence} rpm`;
+        if (decoded.type === 'current') document.getElementById('currentDisplay').innerText = `${currentCurrent} mA`;
+        if (decoded.type === 'bmsRelPct') document.getElementById('bmsRelPctDisplay').innerText = `${currentBmsRelPct} %`;
+        if (decoded.type === 'bmsRemainMah') document.getElementById('bmsRemainMahDisplay').innerText = `${currentBmsRemainMah} mAh`;
+        if (decoded.type === 'bmsFullMah') document.getElementById('bmsFullMahDisplay').innerText = `${currentBmsFullMah} mAh`;
+        if (decoded.type === 'bmsCycles') document.getElementById('bmsCyclesDisplay').innerText = currentBmsCycles;
+        if (decoded.type === 'maxPasLevels') document.getElementById('maxPasLevelsDisplay').innerText = currentMaxPasLevels;
     }
-    if (decoded.type === 'speed') { 
-        currentSpeed = decoded.value; 
-        document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`; 
-        document.getElementById('lockSpeedDisplay').innerText = `${currentSpeed} km/h`; // Updates lock screen
-    }
-    if (decoded.type === 'trip') { currentTrip = decoded.value; document.getElementById('tripDisplay').innerText = `${currentTrip} km`; }
-    if (decoded.type === 'range') { currentRange = decoded.value; document.getElementById('rangeDisplay').innerText = `${currentRange} km`; }
-    if (decoded.type === 'voltage') { currentVoltage = decoded.value; document.getElementById('voltDisplay').innerText = `${currentVoltage} V`; }
-    if (decoded.type === 'temp') { currentTemp = decoded.value; document.getElementById('tempDisplay').innerText = `${currentTemp} °C`; }
-    if (decoded.type === 'odo') { currentOdo = decoded.value; document.getElementById('odoDisplay').innerText = `${currentOdo} km`; }
-    if (decoded.type === 'current') { currentCurrent = decoded.value; document.getElementById('currentDisplay').innerText = `${currentCurrent} mA`; }
-    if (decoded.type === 'bmsRelPct') { currentBmsRelPct = decoded.value; document.getElementById('bmsRelPctDisplay').innerText = `${currentBmsRelPct} %`; }
-    if (decoded.type === 'bmsRemainMah') { currentBmsRemainMah = decoded.value; document.getElementById('bmsRemainMahDisplay').innerText = `${currentBmsRemainMah} mAh`; }
-    if (decoded.type === 'bmsFullMah') { currentBmsFullMah = decoded.value; document.getElementById('bmsFullMahDisplay').innerText = `${currentBmsFullMah} mAh`; }
 
     let logHexVal = "";
     const isHexEnabled = document.getElementById('toggleHex').checked;
