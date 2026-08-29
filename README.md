@@ -1,7 +1,10 @@
 # OpenBafang
 
 A lightweight, mobile-friendly **Progressive Web App (PWA)** built to connect directly to Bafang e-bike CAN-bus controllers (such as the DP E12.CAN display) via Bluetooth Low Energy (BLE). 
-<br><br>It logs high-precision telemetry, tracks your ride using device GPS (with smart distance filtering), and allows you to export clean CSV logs.
+<br><br>It logs high-precision telemetry, tracks your ride using device GPS (with smart distance filtering), and allows you to export clean CSV and GPX logs.
+
+<img width="303.75" height="675" alt="input1" src="https://github.com/user-attachments/assets/f09fa5a9-f5ad-47dc-92b4-13fb27df2283" />
+<img width="303.75" height="675" alt="input2" src="https://github.com/user-attachments/assets/979da274-7a48-4e61-9b48-26e9b93c827c" />
 
 ## Features
 
