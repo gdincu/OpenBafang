@@ -17,8 +17,8 @@ let currentLight = "--";
 let currentAccuracy = 999;
 
 const MAX_ACCURACY_METERS = 25;
-const MIN_MOVE_METERS = 3;
-const MAX_IDLE_TIME_MS = 5000; // Force a log every 5 seconds even if stationary
+const MIN_MOVE_METERS = 10;
+const MAX_IDLE_TIME_MS = 30000; // Force a log every 30 seconds even if stationary
 
 // Check for unsaved ride data recovery on page load
 window.onload = () => {
