@@ -1,12 +1,42 @@
 import { decodeBafangPacket } from './bafang-protocol.js';
 
+class SimpleKalman {
+    constructor(processNoise = 0.0005) { // 0.0005 is optimized for cycling
+        this.q = processNoise;
+        this.x = null;
+        this.p = null;
+    }
+    reset() {
+        this.x = null;
+        this.p = null;
+    }
+    filter(measurement, accuracy) {
+        if (this.x === null) {
+            this.x = measurement;
+            this.p = accuracy;
+            return this.x;
+        }
+        this.p = this.p + this.q;
+        const k = this.p / (this.p + accuracy);
+        this.x = this.x + k * (measurement - this.x);
+        this.p = (1 - k) * this.p;
+        return this.x;
+    }
+}
+
+const kalmanLat = new SimpleKalman();
+const kalmanLon = new SimpleKalman();
+
 let rideData = [];
 let lastLoggedTime = 0;
 let currentLat = 0, currentLon = 0, currentAltitude = 0;
 let lastLoggedLat = null, lastLoggedLon = null;
+let lastLoggedAccuracy = 0;
+let currentNativeSpeedKmh = 0;
 let recentHexLogs = [];
 let wakeLock = null;
 let bleDevice = null;
+let isScreenLocked = false;
 
 let currentPas = "--", currentSpeed = "--", currentOdo = "--";
 let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
@@ -17,8 +47,8 @@ let currentLight = "--";
 let currentAccuracy = 999;
 
 const MAX_ACCURACY_METERS = 25;
-const MIN_MOVE_METERS = 10;
-const MAX_IDLE_TIME_MS = 30000; // Force a log every 30 seconds even if stationary
+const MIN_MOVE_METERS = 5;
+const MAX_IDLE_TIME_MS = 60000;
 
 // Check for unsaved ride data recovery on page load
 window.onload = () => {
@@ -65,7 +95,7 @@ function releaseWakeLock() {
     if (wakeLock !== null) { wakeLock.release().then(() => wakeLock = null); }
 }
 
-// Helper: Calculate distance in meters between two lat/lon points (Haversine formula)
+// Helper: Calculate distance in meters between two lat/lon points (Haversineformula)					  
 function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
     const R = 6371000; // Radius of the earth in meters
     const dLat = deg2rad(lat2 - lat1);
@@ -82,27 +112,48 @@ function deg2rad(deg) {
     return deg * (Math.PI / 180);
 }
 
-		   
+	 
 navigator.geolocation.watchPosition(
     (position) => {
-        currentLat = position.coords.latitude;
-        currentLon = position.coords.longitude;
+        const accuracy = position.coords.accuracy;
+        currentAccuracy = accuracy;
         currentAltitude = position.coords.altitude !== null ? position.coords.altitude : 0;
-        currentAccuracy = position.coords.accuracy;
+        currentNativeSpeedKmh = (position.coords.speed || 0) * 3.6;
+
+        if (accuracy > MAX_ACCURACY_METERS) return;
+
+        const accuracyDeg = accuracy / 111320;
+
+        // Speed Gate: Bypass Kalman filter when moving fast to hug curves
+        if (currentNativeSpeedKmh > 12) {
+            currentLat = position.coords.latitude;
+            currentLon = position.coords.longitude;
+            kalmanLat.x = currentLat;
+            kalmanLon.x = currentLon;
+        } else {
+            // Apply Kalman filter at slow speeds/stops to kill drift
+            currentLat = kalmanLat.filter(position.coords.latitude, accuracyDeg);
+            currentLon = kalmanLon.filter(position.coords.longitude, accuracyDeg);
+        }
         
-        const gpsEl = document.getElementById('gpsDisplay');
-        gpsEl.innerHTML = `GPS: <span class="status-badge status-ok">OK (±${Math.round(currentAccuracy)}m)</span>`;
+        // Skip DOM update if OLED lock screen is active
+        if (!isScreenLocked) {
+            const gpsEl = document.getElementById('gpsDisplay');
+            gpsEl.innerHTML = `GPS: <span class="status-badge status-ok">OK (±${Math.round(currentAccuracy)}m)</span>`;
+        }
     },
     (err) => {
         console.error("GPS Error:", err);
         currentAccuracy = Infinity; // Invalidate accuracy on error
-        const gpsEl = document.getElementById('gpsDisplay');
-        gpsEl.innerHTML = `GPS: <span class="status-badge status-searching">Searching</span>`;
+        if (!isScreenLocked) {
+            const gpsEl = document.getElementById('gpsDisplay');
+            gpsEl.innerHTML = `GPS: <span class="status-badge status-searching">Searching</span>`;
+        }
     },
    
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-	  
-		
+   
+  
   
 );
 
@@ -132,6 +183,8 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         document.getElementById('connectBtn').style.display = 'none';
         document.getElementById('disconnectBtn').style.display = 'block';
         
+        kalmanLat.reset();
+        kalmanLon.reset();
         await requestWakeLock();
     } catch (error) {
         console.error("Bluetooth Error:", error);
@@ -160,9 +213,13 @@ function onDisconnected() {
 }
 
 function downloadLogs() {
+    // Save any remaining points that didn't hit the modulo 10 check
+    if (rideData.length > 0) {
+        localStorage.setItem('ride_data_backup', JSON.stringify(rideData));
+    }
+
     if (rideData.length === 0) return;
 
-    // Generate precise filename: bafang_ride_YYYY-MM-DD_HH-MM-SS
     const timeStampStr = new Date().toISOString().replace(/T/, '_').replace(/:/g, '-').split('.')[0];
     const baseFilename = `bafang_ride_${timeStampStr}`;
 
@@ -188,7 +245,7 @@ function downloadLogs() {
             if (row.altitude_m) gpxContent += `    <ele>${row.altitude_m}</ele>\n`;
             gpxContent += `    <time>${row.timestamp}</time>\n`;
             
-            // Inject e-bike telemetry into the GPX extension node
+																  
             gpxContent += `    <extensions>\n`;
             if (row.speed !== undefined) gpxContent += `      <speed>${row.speed}</speed>\n`;
             if (row.battery !== undefined) gpxContent += `      <battery>${row.battery}</battery>\n`;
@@ -201,7 +258,7 @@ function downloadLogs() {
     const gpxUri = "data:application/gpx+xml;charset=utf-8," + encodeURIComponent(gpxContent);
     triggerDownload(gpxUri, `${baseFilename}.gpx`);
 
-    // Clear backup after successful download
+	// Clear backup after successful download										 
     localStorage.removeItem('ride_data_backup');
 }
 
@@ -213,86 +270,96 @@ function triggerDownload(uri, filename) {
     link.click();
     document.body.removeChild(link);
 }
-			 
+             
 document.getElementById('exportBtn').addEventListener('click', downloadLogs);
 
-// Screen Lock Logic / Unlock Logic
+								   
 const lockScreenBtn = document.getElementById('lockScreenBtn');
 const touchLockOverlay = document.getElementById('touchLockOverlay');
 const unlockSlider = document.getElementById('unlockSlider');
 
-			   
+	  
 lockScreenBtn.addEventListener('click', () => {
     touchLockOverlay.style.display = 'flex';
     unlockSlider.value = 0; // Reset slider position
+    isScreenLocked = true; // Freeze heavy DOM repaints
 });
 
-// Continuously check the slider value as the user drags it
+														   
 unlockSlider.addEventListener('input', (e) => {
-    if (e.target.value >= 95) { // If dragged 95% of the way to the right
-        touchLockOverlay.style.display = 'none'; // Hide overlay
-        e.target.value = 0; // Reset for next time
+    if (e.target.value >= 95) { // If dragged 95% of the way
+        touchLockOverlay.style.display = 'none'; // Hide overlay 
+        e.target.value = 0;  // Reset for next time
+        isScreenLocked = false; // Resume DOM repaints
+        
+        // Force an immediate UI refresh upon unlocking
+        document.getElementById('battDisplay').innerText = `${currentBattery}%`;
+        document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`;
     }
 });
 
-																				  
+																		 
 unlockSlider.addEventListener('change', (e) => {
     if (e.target.value < 95) {
         e.target.value = 0;
     }
 });
 
-			   
+	  
 function handleBikeData(event) {
     const buffer = new Uint8Array(event.target.value.buffer);
     const hexString = Array.from(buffer).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-			 
+             
     const decoded = decodeBafangPacket(buffer);
-	const isLocked = touchLockOverlay.style.display === 'flex';
+															
 
+    // Update global state variables
     if (decoded.type === 'pas') currentPas = decoded.value;
     if (decoded.type === 'light') currentLight = decoded.value;
     if (decoded.type === 'battery') currentBattery = decoded.value;
     if (decoded.type === 'speed') currentSpeed = decoded.value;
     if (decoded.type === 'trip') currentTrip = decoded.value;
     if (decoded.type === 'range') currentRange = decoded.value;
-    if (decoded.type === 'torque') currentTorque = decoded.value;
+																 
     if (decoded.type === 'voltage') currentVoltage = decoded.value;
     if (decoded.type === 'temp') currentTemp = decoded.value;
     if (decoded.type === 'odo') currentOdo = decoded.value;
-    if (decoded.type === 'cadence') currentCadence = decoded.value;
+																   
     if (decoded.type === 'current') currentCurrent = decoded.value;
     if (decoded.type === 'bmsRelPct') currentBmsRelPct = decoded.value;
     if (decoded.type === 'bmsRemainMah') currentBmsRemainMah = decoded.value;
     if (decoded.type === 'bmsFullMah') currentBmsFullMah = decoded.value;
 
-	if (isLocked) {
+    // DOM Repaint Management
+    if (isScreenLocked) {
+        // Only update the bare minimum OLED screen elements
         if (decoded.type === 'battery') document.getElementById('lockBattDisplay').innerText = `${currentBattery}%`;
         if (decoded.type === 'speed') document.getElementById('lockSpeedDisplay').innerText = `${currentSpeed} km/h`;
     } else {
+        // Update full UI
         if (decoded.type === 'pas') document.getElementById('pasDisplay').innerText = currentPas;
         if (decoded.type === 'light') document.getElementById('lightDisplay').innerText = currentLight;
-        if (decoded.type === 'battery') {
-            document.getElementById('battDisplay').innerText = `${currentBattery}%`;
-            document.getElementById('lockBattDisplay').innerText = `${currentBattery}%`; 
-        }
-        if (decoded.type === 'speed') {
-            document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`;
-            document.getElementById('lockSpeedDisplay').innerText = `${currentSpeed} km/h`; 
-        }
+										 
+        if (decoded.type === 'battery') document.getElementById('battDisplay').innerText = `${currentBattery}%`;
+																						 
+		 
+									   
+        if (decoded.type === 'speed') document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`;
+																							
+		 
         if (decoded.type === 'trip') document.getElementById('tripDisplay').innerText = `${currentTrip} km`;
         if (decoded.type === 'range') document.getElementById('rangeDisplay').innerText = `${currentRange} km`;
-        if (decoded.type === 'torque') document.getElementById('torqueDisplay').innerText = currentTorque;
+																										  
         if (decoded.type === 'voltage') document.getElementById('voltDisplay').innerText = `${currentVoltage} V`;
         if (decoded.type === 'temp') document.getElementById('tempDisplay').innerText = `${currentTemp} °C`;
         if (decoded.type === 'odo') document.getElementById('odoDisplay').innerText = `${currentOdo} km`;
-        if (decoded.type === 'cadence') document.getElementById('cadenceDisplay').innerText = `${currentCadence} rpm`;
+																													  
         if (decoded.type === 'current') document.getElementById('currentDisplay').innerText = `${currentCurrent} mA`;
         if (decoded.type === 'bmsRelPct') document.getElementById('bmsRelPctDisplay').innerText = `${currentBmsRelPct} %`;
         if (decoded.type === 'bmsRemainMah') document.getElementById('bmsRemainMahDisplay').innerText = `${currentBmsRemainMah} mAh`;
         if (decoded.type === 'bmsFullMah') document.getElementById('bmsFullMahDisplay').innerText = `${currentBmsFullMah} mAh`;
-        if (decoded.type === 'bmsCycles') document.getElementById('bmsCyclesDisplay').innerText = currentBmsCycles;
-        if (decoded.type === 'maxPasLevels') document.getElementById('maxPasLevelsDisplay').innerText = currentMaxPasLevels;
+																												   
+																																									 
     }
 
     let logHexVal = "";
@@ -301,29 +368,37 @@ function handleBikeData(event) {
         logHexVal = hexString;
         recentHexLogs.unshift(hexString);
         if (recentHexLogs.length > 5) recentHexLogs.pop();
-        document.getElementById('consoleOutput').innerText = recentHexLogs.join('\n');
-    } else {
-        document.getElementById('consoleOutput').innerText = "Logging is disabled.";
+        if (!isScreenLocked) document.getElementById('consoleOutput').innerText = recentHexLogs.join('\n');
+			
+																					
     }
 
-    // Smart Logging Filter Check:
+    // --- Smart Logging Filter ---
+																		 
 																				  
-																						   
     let shouldLog = false;
     let now = Date.now();
-    // 1. Time throttle (minimum 1 second between points) & Accuracy filter
+    const bikeSpeedKmh = parseFloat(currentSpeed) || 0;
+    
+    // Completely halt logging if both the GPS and the bike motor report zero movement
+    const isStationary = currentNativeSpeedKmh < 0.5 && bikeSpeedKmh < 0.5;
+
     if (now - lastLoggedTime < 1000 || currentAccuracy > MAX_ACCURACY_METERS) {
         shouldLog = false;
     } else if (isHexEnabled) {
-        shouldLog = true;
+        shouldLog = true; // Always log if raw hex debugging is on
     } else if (lastLoggedLat === null || lastLoggedLon === null) {
         shouldLog = true;
+    } else if (isStationary) {
+        shouldLog = false; // Ignore GPS jitter while stopped at lights
     } else {
         let distance = getDistanceFromLatLonInMeters(lastLoggedLat, lastLoggedLon, currentLat, currentLon);
         let timeSinceLastLog = now - lastLoggedTime;
 
-        // 2. Optimized Filter: Log if moved far enough OR stayed idle too long
-        if (distance >= MIN_MOVE_METERS || timeSinceLastLog >= MAX_IDLE_TIME_MS) {
+        // Dynamic Signal-to-Noise Filter: Minimum distance scales based on current GPS accuracy
+        const dynamicMinDist = Math.max(MIN_MOVE_METERS, (lastLoggedAccuracy + currentAccuracy) * 0.5);
+
+        if (distance >= dynamicMinDist || timeSinceLastLog >= MAX_IDLE_TIME_MS) {
             shouldLog = true;
         }
     }
@@ -332,13 +407,14 @@ function handleBikeData(event) {
         lastLoggedTime = now;
         lastLoggedLat = currentLat;
         lastLoggedLon = currentLon;
+        lastLoggedAccuracy = currentAccuracy;
 
         let dataPoint = {
             timestamp: new Date().toISOString(),
             lat: currentLat,
             lon: currentLon,
-            altitude_m: currentAltitude.toFixed(1),
-            rawHex: logHexVal
+            altitude_m: currentAltitude.toFixed(1)
+							 
         };
 
         if (document.getElementById('chk_speed').checked) dataPoint.speed = currentSpeed;
@@ -359,12 +435,14 @@ function handleBikeData(event) {
 
         rideData.push(dataPoint);
 
-        // Save progress to localStorage periodically to prevent data loss on browser crash
-        localStorage.setItem('ride_data_backup', JSON.stringify(rideData));
+        // BATTERY OPTIMIZATION: Only stringify and save to storage every 10 data points
+        if (rideData.length % 10 === 0) {
+            localStorage.setItem('ride_data_backup', JSON.stringify(rideData));
+        }
     }
 }
 
-// Register Service Worker for PWA Caching                                      
+// Register Service Worker for PWA Caching			
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
