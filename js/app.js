@@ -359,8 +359,6 @@ function handleBikeData(event) {
             else lightBtn.classList.remove('active');
         }
     }
-    if (decoded.type === 'pas') currentPas = decoded.value;
-    if (decoded.type === 'light') currentLight = decoded.value;
     if (decoded.type === 'battery') currentBattery = decoded.value;
     if (decoded.type === 'speed') currentSpeed = decoded.value;
     if (decoded.type === 'trip') currentTrip = decoded.value;
@@ -509,13 +507,13 @@ lightBtn.addEventListener('click', () => {
     
     // Update UI illumination state immediately
     if (headlightState) {
-        lightBtn.classList.add('active');
-											   
-													  
+        lightBtn.style.background = '#ff9800'; // Illuminated orange
+        lightBtn.style.borderColor = '#ffc107';
+        lightBtn.style.boxShadow = '0 0 15px #ff9800';
     } else {
-        lightBtn.classList.remove('active');
-											
-										  
+        lightBtn.style.background = '#333'; // Off
+        lightBtn.style.borderColor = '#555';
+        lightBtn.style.boxShadow = 'none';  
     }
 });
 
