@@ -35,6 +35,33 @@
             <label><input type="checkbox" id="chk_light"> Headlight</label>
         </div>
     </details>
+	
+	<!-- Bike Controls Card -->
+	<details class="card" id="controlsCard">
+		<summary><b>Bike Controls</b></summary>
+	
+		<div class="bike-controls">
+			<div class="pas-control">
+				<button id="pasDownBtn" class="control-btn pas-btn" title="Decrease PAS">
+					<span>−</span>
+				</button>
+				<div class="pas-display">
+					<span class="pas-label">PAS</span>
+					<span id="pasValue">0</span>
+				</div>
+				<button id="pasUpBtn" class="control-btn pas-btn" title="Increase PAS">
+					<span>+</span>
+				</button>
+			</div>
+			<button id="lightToggleBtn"
+					class="control-btn light-btn"
+					title="Toggle Headlight"
+					aria-label="Toggle Headlight">
+				<span class="light-icon">☼</span>
+			</button>
+		</div>
+	</details>
+
 
     <div class="btn-group">
         <button id="connectBtn">Connect</button>

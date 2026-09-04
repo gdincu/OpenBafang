@@ -14,6 +14,15 @@ export const BAFANG_COMMANDS = {
     BMS_FULL_MAH: 0x66   // 102 dec
 };
 
+export const COMMAND_PAYLOADS = {
+    PAS: {
+        0: '02 01 89 01 00 8B 03',
+        4: '02 01 89 01 04 8F 03'
+    },
+    HEADLIGHT_ON: '02 01 A3 01 01 A6 03',
+    HEADLIGHT_OFF: '02 01 A3 01 00 A5 03'
+};
+
 export function decodeBafangPacket(buffer) {
     const cmdId = buffer[2];
     let result = { type: null, value: null };

@@ -1,37 +1,56 @@
-body { 
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-    padding: 15px; 
-    max-width: 500px; 
-    margin: auto; 
+/* Layout & Typography */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 15px;
+    padding-bottom: 80px;
+    max-width: 500px;
+    margin: auto;
     background-color: #f9f9f9;
     color: #333;
 }
-h2 { text-align: center; margin-bottom: 15px; font-size: 22px; }
 
-.btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
-button { 
-    padding: 14px; 
-    font-size: 15px; 
+h2 {
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 22px;
+}
+
+/* Cards & Containers */
+.card {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 15px;
+}
+
+/* Buttons & Action Groups */
+.btn-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+button {
+    padding: 14px;
+    font-size: 15px;
     font-weight: bold;
     flex: 1;
-    cursor: pointer; 
+    cursor: pointer;
     border: none;
     border-radius: 8px;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s, background 0.15s ease, transform 0.1s ease;
 }
-button:active { opacity: 0.8; }
+
+button:active {
+    opacity: 0.8;
+    transform: scale(0.96);
+}
+
 #connectBtn { background-color: #007bff; color: white; }
 #disconnectBtn { background-color: #dc3545; color: white; }
-#exportBtn { background-color: #28a745; color: white; width: 100%; margin-bottom: 15px;}
+#exportBtn { background-color: #28a745; color: white; width: 100%; margin-bottom: 15px; }
 #exportBtn:disabled { background-color: #ccc; cursor: not-allowed; }
-
-.card { 
-    background: white; 
-    padding: 15px; 
-    border-radius: 10px; 
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    margin-bottom: 15px; 
-}
 
 /* Primary Metrics (Speed & Battery) */
 .primary-metrics {
@@ -40,6 +59,7 @@ button:active { opacity: 0.8; }
     gap: 12px;
     margin-top: 15px;
 }
+
 .metric-primary {
     background: #e3f2fd;
     border: 2px solid #2196f3;
@@ -47,6 +67,7 @@ button:active { opacity: 0.8; }
     border-radius: 8px;
     text-align: center;
 }
+
 .metric-value-large {
     font-size: 26px;
     font-weight: bold;
@@ -61,23 +82,26 @@ button:active { opacity: 0.8; }
     gap: 10px;
     margin-top: 12px;
 }
+
 .metric {
     background: #f1f3f5;
     padding: 10px;
     border-radius: 6px;
     text-align: center;
 }
-.metric-title { 
-    font-size: 11px; 
-    color: #666; 
-    text-transform: uppercase; 
+
+.metric-title {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
     letter-spacing: 0.5px;
 }
-.metric-value { 
-    font-size: 16px; 
-    font-weight: bold; 
-    color: #333; 
-    margin-top: 4px; 
+
+.metric-value {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    margin-top: 4px;
 }
 
 /* Status Bar & Badges */
@@ -87,14 +111,17 @@ button:active { opacity: 0.8; }
     align-items: center;
     font-size: 14px;
 }
+
 .status-badge {
     font-weight: bold;
 }
+
 .status-disconnected, .status-searching {
-    color: #dc3545; /* Red */
+    color: #dc3545;
 }
+
 .status-connected, .status-ok {
-    color: #28a745; /* Green */
+    color: #28a745;
 }
 
 /* Configuration Checklist Panel */
@@ -104,6 +131,7 @@ button:active { opacity: 0.8; }
     gap: 8px;
     font-size: 14px;
 }
+
 .config-grid label {
     display: flex;
     align-items: center;
@@ -119,26 +147,29 @@ summary {
     outline: none;
     user-select: none;
 }
+
 summary::-webkit-details-marker {
     color: #007bff;
 }
+
 details[open] summary {
     margin-bottom: 5px;
 }
 
 /* Raw Hex Code Console */
-pre { 
-    background: #272822; 
+pre {
+    background: #272822;
     color: #f8f8f2;
-    padding: 12px; 
-    font-size: 11px; 
+    padding: 12px;
+    font-size: 11px;
     border-radius: 6px;
-    overflow-x: auto; 
+    overflow-x: auto;
     white-space: pre-wrap;
     margin: 0;
     max-height: 120px;
 }
 
+/* Lock Screen Overlay */
 .touch-lock-overlay {
     position: fixed;
     top: 0;
@@ -147,13 +178,13 @@ pre {
     height: 100vh;
     background: #000000;
     z-index: 9999;
-    display: none; /* Hidden by default */
+    display: none;
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
     color: white;
-    touch-action: pan-y; /* Prevents pull-to-refresh or scrolling */
-	padding-top: 60px;
+    touch-action: pan-y;
+    padding-top: 60px;
 }
 
 .unlock-slider {
@@ -164,7 +195,7 @@ pre {
     background: #333;
     border-radius: 20px;
     outline: none;
-	margin: 10px 0;
+    margin: 10px 0;
 }
 
 .unlock-slider::-webkit-slider-thumb {
@@ -177,6 +208,112 @@ pre {
     cursor: pointer;
 }
 
-body {
-    padding-bottom: 80px;
+/* Bike Controls Section */
+.bike-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+    padding: 18px 0 12px;
+}
+
+.pas-control {
+    display: flex;
+    align-items: center;
+    background: #252525;
+    border: 1px solid #3d3d3d;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+
+.pas-btn {
+    width: 52px;
+    height: 52px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #fff;
+    font-size: 30px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.pas-btn:hover {
+    background: #353535;
+}
+
+.pas-display {
+    min-width: 58px;
+    height: 52px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-left: 1px solid #3d3d3d;
+    border-right: 1px solid #3d3d3d;
+    color: #fff;
+}
+
+.pas-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: #888;
+}
+
+#pasValue {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 22px;
+}
+
+/* Headlight Toggle Button */
+.light-btn {
+    width: 58px;
+    height: 52px;
+    padding: 0;
+    border: 1px solid #444;
+    border-radius: 16px;
+    background: #252525;
+    color: #aaa;
+    font-size: 27px;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.light-btn:hover {
+    background: #303030;
+    color: #fff;
+}
+
+.light-btn.active {
+    background: #fff3a3;
+    color: #ffb300;
+    border-color: #ffd54f;
+    box-shadow: 0 0 14px rgba(255, 213, 79, 0.5), 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+
+.light-icon {
+    display: block;
+    transform: translateY(-1px);
+}
+
+/* Responsive Scaling for Small Screens */
+@media (max-width: 400px) {
+    .bike-controls {
+        gap: 14px;
+    }
+
+    .pas-btn,
+    .light-btn {
+        width: 48px;
+        height: 48px;
+    }
+
+    .pas-display {
+        height: 48px;
+        min-width: 52px;
+    }
 }

@@ -1,4 +1,4 @@
-import { decodeBafangPacket } from './bafang-protocol.js';
+import { decodeBafangPacket, COMMAND_PAYLOADS } from './bafang-protocol.js';
 
 class SimpleKalman {
     constructor(processNoise = 0.0005) { // 0.0005 is optimized for cycling
@@ -37,7 +37,6 @@ let recentHexLogs = [];
 let wakeLock = null;
 let bleDevice = null;
 let isScreenLocked = false;
-
 let currentPas = "--", currentSpeed = "--", currentOdo = "--";
 let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
 let currentTrip = "--", currentRange = "--";
@@ -45,6 +44,8 @@ let currentCurrent = "--", currentBmsRelPct = "--";
 let currentBmsRemainMah = "--", currentBmsFullMah = "--";
 let currentLight = "--";
 let currentAccuracy = 999;
+let writeCharacteristic = null;
+let headlightState = false;
 
 const MAX_ACCURACY_METERS = 25;
 const MIN_MOVE_METERS = 5;
@@ -174,6 +175,7 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         const server = await bleDevice.gatt.connect();
         const service = await server.getPrimaryService('0000fff0-0000-1000-8000-00805f9b34fb');
         const notifyChar = await service.getCharacteristic('0000fff4-0000-1000-8000-00805f9b34fb');
+		writeCharacteristic = await service.getCharacteristic('0000fff3-0000-1000-8000-00805f9b34fb');
 
         await notifyChar.startNotifications();
         notifyChar.addEventListener('characteristicvaluechanged', handleBikeData);
@@ -202,6 +204,7 @@ function onDisconnected() {
     document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">Disconnected</span>`;
     document.getElementById('connectBtn').style.display = 'block';
     document.getElementById('disconnectBtn').style.display = 'none';
+	writeCharacteristic = null;
     releaseWakeLock();
     
     if (rideData.length > 0) {
@@ -210,6 +213,29 @@ function onDisconnected() {
     
     const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
     checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
+}
+
+async function sendHexCommand(hexString) {
+    if (!writeCharacteristic) {
+        console.warn("Write characteristic not available.");
+        return;
+    }
+    try {
+        const cleanHex = hexString.replace(/[\s,:-]/g, '').toLowerCase();
+        const bytes = new Uint8Array(cleanHex.length / 2);
+        for (let i = 0; i < cleanHex.length; i += 2) {
+            bytes[i / 2] = parseInt(cleanHex.substring(i, i + 2), 16);
+        }
+        
+        if (writeCharacteristic.properties.writeWithoutResponse) {
+            await writeCharacteristic.writeValueWithoutResponse(bytes);
+        } else {
+            await writeCharacteristic.writeValueWithResponse(bytes);
+        }
+        console.log("Command sent successfully:", hexString);
+    } catch (error) {
+        console.error("Failed to send command:", error);
+    }
 }
 
 function downloadLogs() {
@@ -441,6 +467,32 @@ function handleBikeData(event) {
         }
     }
 }
+
+document.getElementById('pasDownBtn').addEventListener('click', () => {
+    sendHexCommand(COMMAND_PAYLOADS.PAS[0]);
+});
+
+document.getElementById('pasUpBtn').addEventListener('click', () => {
+    sendHexCommand(COMMAND_PAYLOADS.PAS[4]);
+});
+
+const lightBtn = document.getElementById('lightToggleBtn');
+lightBtn.addEventListener('click', () => {
+    headlightState = !headlightState;
+    const cmd = headlightState ? COMMAND_PAYLOADS.HEADLIGHT_ON : COMMAND_PAYLOADS.HEADLIGHT_OFF;
+    sendHexCommand(cmd);
+    
+    // Update UI illumination state immediately
+    if (headlightState) {
+        lightBtn.style.background = '#ff9800'; // Illuminated orange
+        lightBtn.style.borderColor = '#ffc107';
+        lightBtn.style.boxShadow = '0 0 15px #ff9800';
+    } else {
+        lightBtn.style.background = '#333'; // Off
+        lightBtn.style.borderColor = '#555';
+        lightBtn.style.boxShadow = 'none';
+    }
+});
 
 // Register Service Worker for PWA Caching			
 if ('serviceWorker' in navigator) {
