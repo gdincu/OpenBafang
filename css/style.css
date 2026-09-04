@@ -306,7 +306,7 @@ pre {
     padding: 0;
     border: 1px solid #28a745;
     border-radius: 16px;
-    background: #155724;
+    background: #252525;
     color: #fff;
     font-size: 22px;
     cursor: pointer;
@@ -315,7 +315,7 @@ pre {
 }
 
 .go-btn:hover {
-    background: #1e7e34;
+    background: #303030;
 }
 
 /* Responsive Scaling for Small Screens */
