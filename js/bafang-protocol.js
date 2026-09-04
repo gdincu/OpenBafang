@@ -14,6 +14,15 @@ export const BAFANG_COMMANDS = {
     BMS_FULL_MAH: 0x66   // 102 dec
 };
 
+// '02 01 89 01 05 90 03'  // 5
+const PAS_COMMANDS = [
+    '02 01 89 01 00 8B 03', // 0
+    '02 01 89 01 01 8C 03', // 1
+    '02 01 89 01 02 8D 03', // 2
+    '02 01 89 01 03 8E 03', // 3
+    '02 01 89 01 04 8F 03' // 4
+];
+
 export const COMMAND_PAYLOADS = {
     PAS: {
         0: '02 01 89 01 00 8B 03',
@@ -22,6 +31,11 @@ export const COMMAND_PAYLOADS = {
     HEADLIGHT_ON: '02 01 A3 01 01 A6 03',
     HEADLIGHT_OFF: '02 01 A3 01 00 A5 03'
 };
+
+export function getPasCommand(level) {
+    const lvl = Math.max(0, Math.min(PAS_COMMANDS.length - 1, level));
+    return PAS_COMMANDS[lvl];
+}
 
 export function decodeBafangPacket(buffer) {
     const cmdId = buffer[2];

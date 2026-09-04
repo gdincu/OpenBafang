@@ -1,4 +1,4 @@
-import { decodeBafangPacket, COMMAND_PAYLOADS } from './bafang-protocol.js';
+import { decodeBafangPacket, COMMAND_PAYLOADS, getPasCommand } from './bafang-protocol.js';
 
 class SimpleKalman {
     constructor(processNoise = 0.0005) { // 0.0005 is optimized for cycling
@@ -46,7 +46,30 @@ let currentLight = "--";
 let currentAccuracy = 999;
 let writeCharacteristic = null;
 let headlightState = false;
-let isInitializedFromBike = false;								  
+let isInitializedFromBike = false;
+
+function updatePasUI() {
+    const pasValEl = document.getElementById('pasValue');
+    if (pasValEl) pasValEl.innerText = currentPas;
+    const pasDispEl = document.getElementById('pasDisplay');
+    if (pasDispEl) pasDispEl.innerText = currentPas;
+}
+
+function updateLightUI() {
+    const lightBtn = document.getElementById('lightToggleBtn');
+    if (lightBtn) {
+        if (headlightState) {
+            lightBtn.classList.add('active');
+        } else {
+            lightBtn.classList.remove('active');
+        }
+        lightBtn.style.background = '';
+        lightBtn.style.borderColor = '';
+        lightBtn.style.boxShadow = '';
+    }
+    const lightDisplayEl = document.getElementById('lightDisplay');
+    if (lightDisplayEl) lightDisplayEl.innerText = currentLight;
+}
 
 const MAX_ACCURACY_METERS = 25;
 const MIN_MOVE_METERS = 5;
@@ -163,6 +186,11 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
     try {
         document.getElementById('status').innerHTML = `Status: <span class="status-badge status-searching">Connecting...</span>`;
         isInitializedFromBike = false; // Reset initialization flag on reconnect
+        currentPas = "--";
+        currentLight = "--";
+        headlightState = false;
+        updatePasUI();
+        updateLightUI();
         const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
         checkboxes.forEach(cb => cb.disabled = true);
 
@@ -205,8 +233,13 @@ function onDisconnected() {
     document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">Disconnected</span>`;
     document.getElementById('connectBtn').style.display = 'block';
     document.getElementById('disconnectBtn').style.display = 'none';
-	writeCharacteristic = null;
-	isInitializedFromBike = false;							  
+    writeCharacteristic = null;
+    isInitializedFromBike = false;
+    currentPas = "--";
+    currentLight = "--";
+    headlightState = false;
+    updatePasUI();
+    updateLightUI();
     releaseWakeLock();
     
     if (rideData.length > 0) {
@@ -323,6 +356,8 @@ unlockSlider.addEventListener('input', (e) => {
         // Force an immediate UI refresh upon unlocking
         document.getElementById('battDisplay').innerText = `${currentBattery}%`;
         document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`;
+        updatePasUI();
+        updateLightUI();
     }
 });
 
@@ -342,19 +377,14 @@ function handleBikeData(event) {
 															
 	// Update global state variables
     if (decoded.type === 'pas') {
-    currentPas = decoded.value;
-    isInitializedFromBike = true;
-    const pasValEl = document.getElementById('pasValue');
-    if (pasValEl) pasValEl.innerText = currentPas;
-	}
+        currentPas = decoded.value;
+        isInitializedFromBike = true;
+        if (!isScreenLocked) updatePasUI();
+    }
     if (decoded.type === 'light') {
         currentLight = decoded.value;
         headlightState = (currentLight === "ON");
-        const lightBtn = document.getElementById('lightToggleBtn');
-        if (lightBtn) {
-            if (headlightState) lightBtn.classList.add('active');
-            else lightBtn.classList.remove('active');
-        }
+        if (!isScreenLocked) updateLightUI();
     }
     if (decoded.type === 'battery') currentBattery = decoded.value;
     if (decoded.type === 'speed') currentSpeed = decoded.value;
@@ -377,11 +407,6 @@ function handleBikeData(event) {
         if (decoded.type === 'speed') document.getElementById('lockSpeedDisplay').innerText = `${currentSpeed} km/h`;
     } else {
         // Update full UI
-        if (decoded.type === 'pas') {
-			document.getElementById('pasDisplay').innerText = currentPas;
-			document.getElementById('pasValue').innerText = currentPas;
-		}
-        if (decoded.type === 'light') document.getElementById('lightDisplay').innerText = currentLight;
 										 
         if (decoded.type === 'battery') document.getElementById('battDisplay').innerText = `${currentBattery}%`;
 																						 
@@ -486,55 +511,51 @@ function handleBikeData(event) {
 }
 
 document.getElementById('pasDownBtn').addEventListener('click', async () => {
+    let pasNum = typeof currentPas === 'number' ? currentPas : parseInt(currentPas, 10);
+    if (isNaN(pasNum)) pasNum = 0;
+    else pasNum = Math.max(0, pasNum - 1);
+
+    currentPas = pasNum;
+    updatePasUI();
+
     await sendHexCommand(COMMAND_PAYLOADS.PAS[0]);
-    currentPas = 0;
-    const pasValEl = document.getElementById('pasValue');
-    if (pasValEl) pasValEl.innerText = currentPas;
 });
 
 document.getElementById('pasUpBtn').addEventListener('click', async () => {
+    let pasNum = typeof currentPas === 'number' ? currentPas : parseInt(currentPas, 10);
+    if (isNaN(pasNum)) pasNum = 0;
+    else pasNum = Math.min(4, pasNum + 1);
+
+    currentPas = pasNum;
+    updatePasUI();
+
     await sendHexCommand(COMMAND_PAYLOADS.PAS[4]);
-    currentPas = 4;
-    const pasValEl = document.getElementById('pasValue');
-    if (pasValEl) pasValEl.innerText = currentPas;
 });
 
 const lightBtn = document.getElementById('lightToggleBtn');
-lightBtn.addEventListener('click', () => {
-    headlightState = !headlightState;
-    const cmd = headlightState ? COMMAND_PAYLOADS.HEADLIGHT_ON : COMMAND_PAYLOADS.HEADLIGHT_OFF;
-    sendHexCommand(cmd);
-    
-    // Update UI illumination state immediately
-    if (headlightState) {
-        lightBtn.style.background = '#ff9800'; // Illuminated orange
-        lightBtn.style.borderColor = '#ffc107';
-        lightBtn.style.boxShadow = '0 0 15px #ff9800';
-    } else {
-        lightBtn.style.background = '#333'; // Off
-        lightBtn.style.borderColor = '#555';
-        lightBtn.style.boxShadow = 'none';  
-    }
-});
+if (lightBtn) {
+    lightBtn.addEventListener('click', async () => {
+        headlightState = !headlightState;
+        currentLight = headlightState ? "ON" : "OFF";
+        updateLightUI();
+
+        const cmd = headlightState ? COMMAND_PAYLOADS.HEADLIGHT_ON : COMMAND_PAYLOADS.HEADLIGHT_OFF;
+        await sendHexCommand(cmd);
+    });
+}
 
 document.getElementById('goBtn').addEventListener('click', async () => {
     for (let i = 0; i < 5; i++) {
-        await sendHexCommand(COMMAND_PAYLOADS.PAS[4]);
+        await sendHexCommand(getPasCommand(4));
         await new Promise(resolve => setTimeout(resolve, 50));
     }
     currentPas = 4;
-    const pasValEl = document.getElementById('pasValue');
-    if (pasValEl) pasValEl.innerText = currentPas;
+    updatePasUI();
 
     await sendHexCommand(COMMAND_PAYLOADS.HEADLIGHT_ON);
-    headlightState = true;    
-	
-    const lightBtn = document.getElementById('lightToggleBtn');
-    if (lightBtn) lightBtn.classList.add('active');
-    
+    headlightState = true;
     currentLight = "ON";
-    const lightDisplayEl = document.getElementById('lightDisplay');
-    if (lightDisplayEl) lightDisplayEl.innerText = currentLight;
+    updateLightUI();
 });
 
 // Register Service Worker for PWA Caching			
