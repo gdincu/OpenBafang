@@ -342,14 +342,11 @@ function handleBikeData(event) {
 															
 	// Update global state variables
     if (decoded.type === 'pas') {
-        currentPas = decoded.value;
-        // Read the initial PAS state once upon connection from the bike telemetry feed
-        if (!isInitializedFromBike) {
-            isInitializedFromBike = true;
-            const pasValEl = document.getElementById('pasValue');
-            if (pasValEl) pasValEl.innerText = currentPas;
-        }
-    }
+    currentPas = decoded.value;
+    isInitializedFromBike = true;
+    const pasValEl = document.getElementById('pasValue');
+    if (pasValEl) pasValEl.innerText = currentPas;
+	}
     if (decoded.type === 'light') {
         currentLight = decoded.value;
         headlightState = (currentLight === "ON");
@@ -380,7 +377,10 @@ function handleBikeData(event) {
         if (decoded.type === 'speed') document.getElementById('lockSpeedDisplay').innerText = `${currentSpeed} km/h`;
     } else {
         // Update full UI
-        if (decoded.type === 'pas') document.getElementById('pasDisplay').innerText = currentPas;
+        if (decoded.type === 'pas') {
+			document.getElementById('pasDisplay').innerText = currentPas;
+			document.getElementById('pasValue').innerText = currentPas;
+		}
         if (decoded.type === 'light') document.getElementById('lightDisplay').innerText = currentLight;
 										 
         if (decoded.type === 'battery') document.getElementById('battDisplay').innerText = `${currentBattery}%`;
@@ -515,6 +515,26 @@ lightBtn.addEventListener('click', () => {
         lightBtn.style.borderColor = '#555';
         lightBtn.style.boxShadow = 'none';  
     }
+});
+
+document.getElementById('goBtn').addEventListener('click', async () => {
+    for (let i = 0; i < 5; i++) {
+        await sendHexCommand(COMMAND_PAYLOADS.PAS[4]);
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    currentPas = 4;
+    const pasValEl = document.getElementById('pasValue');
+    if (pasValEl) pasValEl.innerText = currentPas;
+
+    await sendHexCommand(COMMAND_PAYLOADS.HEADLIGHT_ON);
+    headlightState = true;    
+	
+    const lightBtn = document.getElementById('lightToggleBtn');
+    if (lightBtn) lightBtn.classList.add('active');
+    
+    currentLight = "ON";
+    const lightDisplayEl = document.getElementById('lightDisplay');
+    if (lightDisplayEl) lightDisplayEl.innerText = currentLight;
 });
 
 // Register Service Worker for PWA Caching			

@@ -300,6 +300,24 @@ pre {
     transform: translateY(-1px);
 }
 
+.go-btn {
+    width: 58px;
+    height: 52px;
+    padding: 0;
+    border: 1px solid #28a745;
+    border-radius: 16px;
+    background: #155724;
+    color: #fff;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.go-btn:hover {
+    background: #1e7e34;
+}
+
 /* Responsive Scaling for Small Screens */
 @media (max-width: 400px) {
     .bike-controls {
