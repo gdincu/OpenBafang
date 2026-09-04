@@ -33,7 +33,6 @@ let currentLat = 0, currentLon = 0, currentAltitude = 0;
 let lastLoggedLat = null, lastLoggedLon = null;
 let lastLoggedAccuracy = 0;
 let currentNativeSpeedKmh = 0;
-let recentHexLogs = [];
 let wakeLock = null;
 let bleDevice = null;
 let isScreenLocked = false;
@@ -267,7 +266,7 @@ async function sendHexCommand(hexString) {
         } else {
             await writeCharacteristic.writeValueWithResponse(bytes);
         }
-        console.log("Command sent successfully:", hexString);
+        // console.log("Command sent successfully:", hexString);
     } catch (error) {
         console.error("Failed to send command:", error);
     }
@@ -371,8 +370,6 @@ unlockSlider.addEventListener('change', (e) => {
 	  
 function handleBikeData(event) {
     const buffer = new Uint8Array(event.target.value.buffer);
-    const hexString = Array.from(buffer).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
-             
     const decoded = decodeBafangPacket(buffer);
 															
 	// Update global state variables
@@ -430,20 +427,7 @@ function handleBikeData(event) {
 																																									 
     }
 
-    let logHexVal = "";
-    const isHexEnabled = document.getElementById('toggleHex').checked;
-    if (isHexEnabled) {
-        logHexVal = hexString;
-        recentHexLogs.unshift(hexString);
-        if (recentHexLogs.length > 5) recentHexLogs.pop();
-        if (!isScreenLocked) document.getElementById('consoleOutput').innerText = recentHexLogs.join('\n');
-			
-																					
-    }
-
     // --- Smart Logging Filter ---
-																		 
-																				  
     let shouldLog = false;
     let now = Date.now();
     const bikeSpeedKmh = parseFloat(currentSpeed) || 0;
@@ -453,8 +437,6 @@ function handleBikeData(event) {
 
     if (now - lastLoggedTime < 1000 || currentAccuracy > MAX_ACCURACY_METERS) {
         shouldLog = false;
-    } else if (isHexEnabled) {
-        shouldLog = true; // Always log if raw hex debugging is on
     } else if (lastLoggedLat === null || lastLoggedLon === null) {
         shouldLog = true;
     } else if (isStationary) {
@@ -482,7 +464,6 @@ function handleBikeData(event) {
             lat: currentLat,
             lon: currentLon,
             altitude_m: currentAltitude.toFixed(1)
-							 
         };
 
         if (document.getElementById('chk_speed').checked) dataPoint.speed = currentSpeed;
@@ -498,8 +479,6 @@ function handleBikeData(event) {
         if (document.getElementById('chk_bmsRelPct').checked) dataPoint.bmsRelPct = currentBmsRelPct;
         if (document.getElementById('chk_bmsRemainMah').checked) dataPoint.bmsRemainMah = currentBmsRemainMah;
         if (document.getElementById('chk_bmsFullMah').checked) dataPoint.bmsFullMah = currentBmsFullMah;
-        
-        if (isHexEnabled) dataPoint.rawHex = logHexVal;
 
         rideData.push(dataPoint);
 

@@ -1,18 +1,19 @@
+/* Reset & Box Sizing */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
 /* Layout & Typography */
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0 auto;
     padding: 15px;
-    padding-bottom: 80px;
+    padding-top: max(20px, calc(15px + env(safe-area-inset-top)));
+    padding-bottom: calc(85px + env(safe-area-inset-bottom));
     max-width: 500px;
-    margin: auto;
+    min-height: 100vh;
     background-color: #f9f9f9;
     color: #333;
-}
-
-h2 {
-    text-align: center;
-    margin-bottom: 15px;
-    font-size: 22px;
 }
 
 /* Cards & Containers */
@@ -51,6 +52,25 @@ button:active {
 #disconnectBtn { background-color: #dc3545; color: white; }
 #exportBtn { background-color: #28a745; color: white; width: 100%; margin-bottom: 15px; }
 #exportBtn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+#lockScreenBtn {
+    position: fixed;
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 400px;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    background-color: #ff9800;
+    color: white;
+    z-index: 1000;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
 
 /* Primary Metrics (Speed & Battery) */
 .primary-metrics {
@@ -154,19 +174,6 @@ summary::-webkit-details-marker {
 
 details[open] summary {
     margin-bottom: 5px;
-}
-
-/* Raw Hex Code Console */
-pre {
-    background: #272822;
-    color: #f8f8f2;
-    padding: 12px;
-    font-size: 11px;
-    border-radius: 6px;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    margin: 0;
-    max-height: 120px;
 }
 
 /* Lock Screen Overlay */
