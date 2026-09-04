@@ -8,14 +8,13 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="icon.png">
     <meta name="theme-color" content="#007bff">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 
     <h2>OpenBafang</h2>
     
-    <!-- Collapsible Configuration Panel -->
     <details class="card" id="configCard">
         <summary><b>Configure Log & Display Metrics</b></summary>
         <div class="config-grid" style="margin-top: 12px;">
@@ -23,7 +22,7 @@
             <label><input type="checkbox" id="chk_latlon" checked disabled> Lat / Lon / Alt</label>
             <label><input type="checkbox" id="chk_speed" checked> Speed</label>
             <label><input type="checkbox" id="chk_battery" checked> Battery %</label>
-            <label><input type="checkbox" id="chk_odo"> Odometer</label>
+            <label><input type="checkbox" id="chk_odo" checked> Odometer</label>
             <label><input type="checkbox" id="chk_temp"> Battery Temp</label>
             <label><input type="checkbox" id="chk_pas"> PAS Level</label>
             <label><input type="checkbox" id="chk_voltage"> Voltage</label>
@@ -38,7 +37,7 @@
     </details>
 
     <div class="btn-group">
-        <button id="connectBtn">Connect to Bike</button>
+        <button id="connectBtn">Connect</button>
         <button id="disconnectBtn" style="display:none;">Disconnect</button>
     </div>
     
@@ -50,7 +49,6 @@
             <div id="gpsDisplay">GPS: <span class="status-badge status-searching">Searching</span></div>
         </div>
 
-        <!-- Large Primary Display for Speed & Battery -->
         <div class="primary-metrics">
             <div class="metric-primary" id="box_speed">
                 <div class="metric-title">Speed</div>
@@ -62,7 +60,6 @@
             </div>
         </div>
 
-        <!-- Smaller Grid for Optional Secondary Metrics -->
         <div class="metric-grid" id="secondaryGrid">
             <div class="metric" id="box_pas" style="display:none;">
                 <div class="metric-title">PAS Level</div>
@@ -111,7 +108,6 @@
         </div>
     </div>
     
-    <!-- Collapsible Raw Hex Stream Panel -->
     <details class="card">
         <summary style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <b>Raw Hex Stream</b>
