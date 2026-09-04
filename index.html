@@ -16,7 +16,7 @@
     <h2>OpenBafang</h2>
     
     <details class="card" id="configCard">
-        <summary><b>Configure Log & Display Metrics</b></summary>
+        <summary><b>Metrics</b></summary>
         <div class="config-grid" style="margin-top: 12px;">
             <label><input type="checkbox" id="chk_timestamp" checked disabled> Timestamp</label>
             <label><input type="checkbox" id="chk_latlon" checked disabled> Lat / Lon / Alt</label>
@@ -38,27 +38,19 @@
 	
 	<!-- Bike Controls Card -->
 	<details class="card" id="controlsCard">
-		<summary><b>Bike Controls</b></summary>
-	
+    <summary><b>Controls</b></summary>
 		<div class="bike-controls">
+			<button id="pasDownBtn" class="pas-btn" title="PAS 0">⬇️</button>
 			<div class="pas-control">
-				<button id="pasDownBtn" class="control-btn pas-btn" title="Decrease PAS">
-					<span>−</span>
-				</button>
 				<div class="pas-display">
 					<span class="pas-label">PAS</span>
-					<span id="pasValue">0</span>
+					<span id="pasValue">--</span>
 				</div>
-				<button id="pasUpBtn" class="control-btn pas-btn" title="Increase PAS">
-					<span>+</span>
-				</button>
 			</div>
-			<button id="lightToggleBtn"
-					class="control-btn light-btn"
-					title="Toggle Headlight"
-					aria-label="Toggle Headlight">
-				<span class="light-icon">☼</span>
+			<button id="lightToggleBtn" class="light-btn" title="Toggle Headlight">
+				<span class="light-icon">💡</span>
 			</button>
+			<button id="pasUpBtn" class="pas-btn" title="PAS 4">⬆️</button>
 		</div>
 	</details>
 
