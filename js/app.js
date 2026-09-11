@@ -6,6 +6,11 @@ class SimpleKalman {
         this.x = null;
         this.p = null;
     }
+
+    setProcessNoise(newQ) {
+        this.q = newQ;
+    }
+
     reset() {
         this.x = null;
         this.p = null;
@@ -155,7 +160,12 @@ navigator.geolocation.watchPosition(
             kalmanLat.x = currentLat;
             kalmanLon.x = currentLon;
         } else {
-            // Apply Kalman filter at slow speeds/stops to kill drift
+            // If walking or stopped, apply dynamic Kalman filter based on current accuracy
+            const smoothingFactor = window.kalmanMultiplier || 0.1;
+            const dynamicQ = accuracyDeg * smoothingFactor;
+            kalmanLat.setProcessNoise(dynamicQ);
+            kalmanLon.setProcessNoise(dynamicQ);
+
             currentLat = kalmanLat.filter(position.coords.latitude, accuracyDeg);
             currentLon = kalmanLon.filter(position.coords.longitude, accuracyDeg);
         }
