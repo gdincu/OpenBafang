@@ -537,6 +537,11 @@ document.getElementById('goBtn').addEventListener('click', async () => {
     updateLightUI();
 });
 
+// Block context menu event triggered by long-press or right-click
+window.addEventListener('contextmenu', function (event) {
+    event.preventDefault();
+});
+
 // Register Service Worker for PWA Caching			
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

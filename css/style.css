@@ -3,6 +3,13 @@
     box-sizing: border-box;
 }
 
+/* Disable text selection and callouts globally */
+* {
+  -webkit-touch-callout: none; /* Disables iOS/Android callout menu on long-press */
+  -webkit-user-select: none;   /* Disables text selection highlighting */
+  user-select: none;          
+}
+
 /* Layout & Typography */
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
