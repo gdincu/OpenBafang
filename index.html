@@ -29,6 +29,11 @@
             <label><input type="checkbox" id="chk_bmsRelPct"> BMS Rel %</label>
             <label><input type="checkbox" id="chk_bmsRemainMah"> Rem. Cap (mAh)</label>
             <label><input type="checkbox" id="chk_bmsFullMah"> Full Cap (mAh)</label>
+            <label><input type="checkbox" id="chk_bmsNowPct"> BMS Now %</label>
+            <label><input type="checkbox" id="chk_bmsCycle"> Charge Cycles</label>
+            <label><input type="checkbox" id="chk_bmsChgCurMin"> Chg Interval (min)</label>
+            <label><input type="checkbox" id="chk_bmsChgMaxMin"> Max Interval (min)</label>
+            <label><input type="checkbox" id="chk_pasNum"> PAS Levels</label>
             <label><input type="checkbox" id="chk_light"> Headlight</label>
         </div>
     </details>
@@ -117,6 +122,26 @@
             <div class="metric" id="box_bmsFullMah" style="display:none;">
                 <div class="metric-title">Full Cap</div>
                 <div class="metric-value" id="bmsFullMahDisplay">-- mAh</div>
+            </div>
+            <div class="metric" id="box_bmsNowPct" style="display:none;">
+                <div class="metric-title">BMS Now %</div>
+                <div class="metric-value" id="bmsNowPctDisplay">-- %</div>
+            </div>
+            <div class="metric" id="box_bmsCycle" style="display:none;">
+                <div class="metric-title">Charge Cycles</div>
+                <div class="metric-value" id="bmsCycleDisplay">--</div>
+            </div>
+            <div class="metric" id="box_bmsChgCurMin" style="display:none;">
+                <div class="metric-title">Chg Interval</div>
+                <div class="metric-value" id="bmsChgCurMinDisplay">-- min</div>
+            </div>
+            <div class="metric" id="box_bmsChgMaxMin" style="display:none;">
+                <div class="metric-title">Max Interval</div>
+                <div class="metric-value" id="bmsChgMaxMinDisplay">-- min</div>
+            </div>
+            <div class="metric" id="box_pasNum" style="display:none;">
+                <div class="metric-title">PAS Levels</div>
+                <div class="metric-value" id="pasNumDisplay">--</div>
             </div>
             <div class="metric" id="box_temp" style="display:none;">
                 <div class="metric-title">Batt. Temp</div>

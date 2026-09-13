@@ -1,6 +1,9 @@
 {
   "name": "OpenBafang",
   "short_name": "OpenBafang",
+  "description": "Connect to Bafang CAN-bus e-bikes via Web Bluetooth, log telemetry and export CSV/GPX.",
+  "id": "./",
+  "scope": "./",
   "start_url": "./index.html",
   "display": "fullscreen",
   "background_color": "#f9f9f9",
@@ -8,7 +11,7 @@
   "icons": [
     {
       "src": "icon.png",
-      "sizes": "144x144",
+      "sizes": "any",
       "type": "image/png"
     }
   ]

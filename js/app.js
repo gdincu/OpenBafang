@@ -1,4 +1,4 @@
-import { decodeBafangPacket, COMMAND_PAYLOADS, getPasCommand } from './bafang-protocol.js';
+import { decodeBafangPacket, COMMAND_PAYLOADS, getPasCommand, buildWriteFrame, BAFANG_COMMANDS, validateBafangPacket } from './bafang-protocol.js';
 
 class SimpleKalman {
     constructor(processNoise = 0.0005) { // 0.0005 is optimized for cycling
@@ -34,29 +34,53 @@ const kalmanLon = new SimpleKalman();
 
 let rideData = [];
 let lastLoggedTime = 0;
+let lastBackupTime = 0;
+const BACKUP_INTERVAL_MS = 30000;
 let currentLat = 0, currentLon = 0, currentAltitude = 0;
 let lastLoggedLat = null, lastLoggedLon = null;
 let lastLoggedAccuracy = 0;
 let currentNativeSpeedKmh = 0;
 let wakeLock = null;
 let bleDevice = null;
+let geoWatchId = null;
 let isScreenLocked = false;
 let currentPas = "--", currentSpeed = "--", currentOdo = "--";
 let currentBattery = "--", currentVoltage = "--", currentTemp = "--";
 let currentTrip = "--", currentRange = "--";
 let currentCurrent = "--", currentBmsRelPct = "--";
 let currentBmsRemainMah = "--", currentBmsFullMah = "--";
+let currentBmsNowPct = "--", currentBmsCycle = "--";
+let currentBmsChgCurMin = "--", currentBmsChgMaxMin = "--";
+let currentPasNum = "--";
+// Default = hardest clamp (matches the 0-4 send table) so the pre-notify
+// window can't overshoot; overwritten by the bike's pasNum notify (~1s).
+let pasNumMax = 4;
 let currentLight = "--";
 let currentAccuracy = 999;
 let writeCharacteristic = null;
 let headlightState = false;
-let isInitializedFromBike = false;
+
+function pasLevelToString(level) {
+    const n = typeof level === 'number' ? level : parseInt(level, 10);
+    if (!isNaN(n) && n > pasNumMax) return "WALK";
+    return String(level);
+}
 
 function updatePasUI() {
     const pasValEl = document.getElementById('pasValue');
-    if (pasValEl) pasValEl.innerText = currentPas;
+    if (pasValEl) pasValEl.innerText = pasLevelToString(currentPas);
     const pasDispEl = document.getElementById('pasDisplay');
-    if (pasDispEl) pasDispEl.innerText = currentPas;
+    if (pasDispEl) pasDispEl.innerText = pasLevelToString(currentPas);
+}
+
+// Walk mode reports a PAS value above the normal range (15 on DP E12).
+// Clamp it back into range first so +/- always computes AND displays
+// exactly the level that gets sent - otherwise the buttons show a level
+// the bike never acknowledges and look out of sync until feedback arrives.
+function parsePasBase() {
+    let n = typeof currentPas === 'number' ? currentPas : parseInt(currentPas, 10);
+    if (isNaN(n)) return 0;
+    return Math.min(pasNumMax, Math.max(0, n));
 }
 
 function updateLightUI() {
@@ -78,6 +102,7 @@ function updateLightUI() {
 const MAX_ACCURACY_METERS = 25;
 const MIN_MOVE_METERS = 5;
 const MAX_IDLE_TIME_MS = 60000;
+const KALMAN_SMOOTHING = 0.1;
 
 // Check for unsaved ride data recovery on page load
 window.onload = () => {
@@ -97,7 +122,8 @@ function updateDisplayVisibility() {
     const metrics = [
         'speed', 'battery', 'pas', 'voltage', 'range', 'trip', 'odo', 
         'current', 'bmsRelPct', 'bmsRemainMah', 
-        'bmsFullMah', 'temp', 'light'
+        'bmsFullMah', 'bmsNowPct', 'bmsCycle', 'bmsChgCurMin',
+        'bmsChgMaxMin', 'pasNum', 'temp', 'light'
     ];
     metrics.forEach(m => {
         const checkbox = document.getElementById(`chk_${m}`);
@@ -121,8 +147,18 @@ async function requestWakeLock() {
 }
 
 function releaseWakeLock() {
-    if (wakeLock !== null) { wakeLock.release().then(() => wakeLock = null); }
+    if (wakeLock !== null) {
+        try { wakeLock.release(); } catch (err) { /* already released */ }
+        wakeLock = null;
+    }
 }
+
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && wakeLock === null
+        && bleDevice && bleDevice.gatt.connected && !isScreenLocked) {
+        await requestWakeLock();
+    }
+});
 
 // Helper: Calculate distance in meters between two lat/lon points (Haversineformula)					  
 function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
@@ -142,8 +178,7 @@ function deg2rad(deg) {
 }
 
 	 
-navigator.geolocation.watchPosition(
-    (position) => {
+function handleGpsPosition(position) {
         const accuracy = position.coords.accuracy;
         currentAccuracy = accuracy;
         currentAltitude = position.coords.altitude !== null ? position.coords.altitude : 0;
@@ -161,8 +196,7 @@ navigator.geolocation.watchPosition(
             kalmanLon.x = currentLon;
         } else {
             // If walking or stopped, apply dynamic Kalman filter based on current accuracy
-            const smoothingFactor = window.kalmanMultiplier || 0.1;
-            const dynamicQ = accuracyDeg * smoothingFactor;
+            const dynamicQ = accuracyDeg * KALMAN_SMOOTHING;
             kalmanLat.setProcessNoise(dynamicQ);
             kalmanLon.setProcessNoise(dynamicQ);
 
@@ -175,88 +209,33 @@ navigator.geolocation.watchPosition(
             const gpsEl = document.getElementById('gpsDisplay');
             gpsEl.innerHTML = `GPS: <span class="status-badge status-ok">OK (±${Math.round(currentAccuracy)}m)</span>`;
         }
-    },
-    (err) => {
+}
+
+function handleGpsError(err) {
         console.error("GPS Error:", err);
         currentAccuracy = Infinity; // Invalidate accuracy on error
         if (!isScreenLocked) {
             const gpsEl = document.getElementById('gpsDisplay');
             gpsEl.innerHTML = `GPS: <span class="status-badge status-searching">Searching</span>`;
         }
-    },
-   
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-   
-  
-  
-);
+}
 
-document.getElementById('connectBtn').addEventListener('click', async () => {
-    try {
-        document.getElementById('status').innerHTML = `Status: <span class="status-badge status-searching">Connecting...</span>`;
-        isInitializedFromBike = false; // Reset initialization flag on reconnect
-        currentPas = "--";
-        currentLight = "--";
-        headlightState = false;
-        updatePasUI();
-        updateLightUI();
-        const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
-        checkboxes.forEach(cb => cb.disabled = true);
+// GPS only runs while connected to the bike - no point draining the
+// battery tracking position on the sofa.
+function startGpsTracking() {
+    if (geoWatchId !== null || !('geolocation' in navigator)) return;
+    geoWatchId = navigator.geolocation.watchPosition(
+        handleGpsPosition,
+        handleGpsError,
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    );
+}
 
-        bleDevice = await navigator.bluetooth.requestDevice({
-            filters: [{ name: 'DP E12.CAN' }],
-            optionalServices: ['0000fff0-0000-1000-8000-00805f9b34fb']
-        });
-        
-        bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
-
-        const server = await bleDevice.gatt.connect();
-        const service = await server.getPrimaryService('0000fff0-0000-1000-8000-00805f9b34fb');
-        const notifyChar = await service.getCharacteristic('0000fff4-0000-1000-8000-00805f9b34fb');
-		writeCharacteristic = await service.getCharacteristic('0000fff3-0000-1000-8000-00805f9b34fb');
-
-        await notifyChar.startNotifications();
-        notifyChar.addEventListener('characteristicvaluechanged', handleBikeData);
-        
-        document.getElementById('status').innerHTML = `Status: <span class="status-badge status-connected">Connected</span>`;
-        document.getElementById('exportBtn').disabled = false;
-        document.getElementById('connectBtn').style.display = 'none';
-        document.getElementById('disconnectBtn').style.display = 'block';
-        
-        kalmanLat.reset();
-        kalmanLon.reset();
-        await requestWakeLock();
-    } catch (error) {
-        console.error("Bluetooth Error:", error);
-        document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">Connection Failed</span>`;
-        const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
-        checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
+function stopGpsTracking() {
+    if (geoWatchId !== null && ('geolocation' in navigator)) {
+        navigator.geolocation.clearWatch(geoWatchId);
     }
-});
-
-document.getElementById('disconnectBtn').addEventListener('click', () => {
-    if (bleDevice && bleDevice.gatt.connected) { bleDevice.gatt.disconnect(); }
-});
-
-function onDisconnected() {
-    document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">Disconnected</span>`;
-    document.getElementById('connectBtn').style.display = 'block';
-    document.getElementById('disconnectBtn').style.display = 'none';
-    writeCharacteristic = null;
-    isInitializedFromBike = false;
-    currentPas = "--";
-    currentLight = "--";
-    headlightState = false;
-    updatePasUI();
-    updateLightUI();
-    releaseWakeLock();
-    
-    if (rideData.length > 0) {
-        downloadLogs();
-    }
-    
-    const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
-    checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
+    geoWatchId = null;
 }
 
 async function sendHexCommand(hexString) {
@@ -282,10 +261,111 @@ async function sendHexCommand(hexString) {
     }
 }
 
-function downloadLogs() {
-    // Save any remaining points that didn't hit the modulo 10 check
+document.getElementById('connectBtn').addEventListener('click', async () => {
+    try {
+        document.getElementById('status').innerHTML = `Status: <span class="status-badge status-searching">Connecting...</span>`;
+        currentPas = "--";
+        currentLight = "--";
+        currentPasNum = "--";
+        currentBmsNowPct = "--";
+        currentBmsCycle = "--";
+        currentBmsChgCurMin = "--";
+        currentBmsChgMaxMin = "--";
+        pasNumMax = 4;
+        headlightState = false;
+        updatePasUI();
+        updateLightUI();
+        const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.disabled = true);
+
+        bleDevice = await navigator.bluetooth.requestDevice({
+            filters: [{ name: 'DP E12.CAN' }],
+            optionalServices: ['0000fff0-0000-1000-8000-00805f9b34fb']
+        });
+        
+        bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+        const server = await bleDevice.gatt.connect();
+        const service = await server.getPrimaryService('0000fff0-0000-1000-8000-00805f9b34fb');
+        const notifyChar = await service.getCharacteristic('0000fff4-0000-1000-8000-00805f9b34fb');
+		writeCharacteristic = await service.getCharacteristic('0000fff3-0000-1000-8000-00805f9b34fb');
+
+        await notifyChar.startNotifications();
+        notifyChar.addEventListener('characteristicvaluechanged', handleBikeData);
+
+        // Bafang Go sends A1=1 right after subscribing; extended BMS
+        // details (0x67/0x68/0x69) only arrive after it.
+        await sendHexCommand(buildWriteFrame(BAFANG_COMMANDS.SESSION, 0x01));
+        
+        document.getElementById('status').innerHTML = `Status: <span class="status-badge status-connected">Connected</span>`;
+        document.getElementById('exportBtn').disabled = false;
+        document.getElementById('connectBtn').style.display = 'none';
+        document.getElementById('disconnectBtn').style.display = 'block';
+        
+        kalmanLat.reset();
+        kalmanLon.reset();
+        startGpsTracking();
+        await requestWakeLock();
+    } catch (error) {
+        console.error("Bluetooth Error:", error);
+        document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">Connection Failed</span>`;
+        const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
+        checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
+    }
+});
+
+document.getElementById('disconnectBtn').addEventListener('click', async () => {
+    try { await sendHexCommand(buildWriteFrame(BAFANG_COMMANDS.SESSION, 0x00)); } catch (e) { /* best effort */ }
+    if (bleDevice && bleDevice.gatt.connected) { bleDevice.gatt.disconnect(); }
+});
+
+function onDisconnected() {
+    document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">Disconnected</span>`;
+    document.getElementById('connectBtn').style.display = 'block';
+    document.getElementById('disconnectBtn').style.display = 'none';
+    writeCharacteristic = null;
+    currentPas = "--";
+    currentLight = "--";
+    currentPasNum = "--";
+    currentBmsNowPct = "--";
+    currentBmsCycle = "--";
+    currentBmsChgCurMin = "--";
+    currentBmsChgMaxMin = "--";
+    pasNumMax = 4;
+    headlightState = false;
+    updatePasUI();
+    updateLightUI();
+    releaseWakeLock();
+    stopGpsTracking();
+    
     if (rideData.length > 0) {
+        downloadLogs();
+    }
+    
+    const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
+    checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
+}
+
+function scheduleBackup() {
+    const now = Date.now();
+    if (rideData.length === 0 || now - lastBackupTime < BACKUP_INTERVAL_MS) return;
+    lastBackupTime = now;
+    try {
         localStorage.setItem('ride_data_backup', JSON.stringify(rideData));
+    } catch (err) {
+        console.warn("Backup failed (quota?):", err);
+    }
+}
+
+function downloadLogs() {
+    // Persist the final state before exporting
+    if (rideData.length > 0) {
+        try {
+            localStorage.setItem('ride_data_backup', JSON.stringify(rideData));
+        } catch (err) {
+            console.warn("Backup failed (quota?):", err);
+        }
+        lastBackupTime = Date.now();
     }
 
     if (rideData.length === 0) return;
@@ -293,20 +373,23 @@ function downloadLogs() {
     const timeStampStr = new Date().toISOString().replace(/T/, '_').replace(/:/g, '-').split('.')[0];
     const baseFilename = `bafang_ride_${timeStampStr}`;
 
-    // --- 1. GENERATE CSV ---
+    // --- 1. GENERATE CSV (Blob: data-URIs break on long rides) ---
     const keys = Object.keys(rideData[0]);
-    let csvContent = "data:text/csv;charset=utf-8," + keys.join(",") + "\n";
-    
+    const csvLines = [keys.join(",")];
     rideData.forEach(row => {
-        let line = keys.map(key => {
-            let val = row[key] !== undefined ? row[key] : "";
-            return typeof val === 'string' && val.includes(',') ? `"${val}"` : val;
-        });
-        csvContent += line.join(",") + "\n";
+        csvLines.push(keys.map(key => {
+            const val = row[key] !== undefined ? row[key] : "";
+            return typeof val === 'string' && (val.includes(',') || val.includes('"'))
+                ? `"${val.replace(/"/g, '""')}"` : val;
+        }).join(","));
     });
-    triggerDownload(encodeURI(csvContent), `${baseFilename}.csv`);
+    triggerDownload(
+        URL.createObjectURL(new Blob([csvLines.join("\n")], { type: 'text/csv;charset=utf-8' })),
+        `${baseFilename}.csv`
+    );
 
-    // --- 2. GENERATE GPX ---
+    // --- 2. GENERATE GPX (Blob, all logged e-bike fields as extensions) ---
+    const escXml = (v) => String(v).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
     let gpxContent = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="OpenBafang">\n<trk>\n<name>${baseFilename}</name>\n<trkseg>\n`;
     
     rideData.forEach(row => {
@@ -315,21 +398,29 @@ function downloadLogs() {
             if (row.altitude_m) gpxContent += `    <ele>${row.altitude_m}</ele>\n`;
             gpxContent += `    <time>${row.timestamp}</time>\n`;
             
-																  
-            gpxContent += `    <extensions>\n`;
-            if (row.speed !== undefined) gpxContent += `      <speed>${row.speed}</speed>\n`;
-            if (row.battery !== undefined) gpxContent += `      <battery>${row.battery}</battery>\n`;
-            gpxContent += `    </extensions>\n`;
+            const extKeys = [
+                'speed', 'battery', 'pas', 'pasNum', 'voltage', 'current',
+                'odo', 'trip', 'range', 'temp', 'light',
+                'bmsRelPct', 'bmsNowPct', 'bmsRemainMah', 'bmsFullMah', 'bmsCycle'
+            ].filter(k => row[k] !== undefined);
+            if (extKeys.length > 0) {
+                gpxContent += `    <extensions>\n`;
+                extKeys.forEach(k => { gpxContent += `      <${k}>${escXml(row[k])}</${k}>\n`; });
+                gpxContent += `    </extensions>\n`;
+            }
             gpxContent += `  </trkpt>\n`;
         }
     });
     gpxContent += `</trkseg>\n</trk>\n</gpx>`;
     
-    const gpxUri = "data:application/gpx+xml;charset=utf-8," + encodeURIComponent(gpxContent);
-    triggerDownload(gpxUri, `${baseFilename}.gpx`);
+    triggerDownload(
+        URL.createObjectURL(new Blob([gpxContent], { type: 'application/gpx+xml;charset=utf-8' })),
+        `${baseFilename}.gpx`
+    );
 
 	// Clear backup after successful download										 
     localStorage.removeItem('ride_data_backup');
+    lastBackupTime = 0;
 }
 
 function triggerDownload(uri, filename) {
@@ -339,6 +430,9 @@ function triggerDownload(uri, filename) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    if (uri.startsWith('blob:')) {
+        setTimeout(() => URL.revokeObjectURL(uri), 60000);
+    }
 }
              
 document.getElementById('exportBtn').addEventListener('click', downloadLogs);
@@ -367,6 +461,24 @@ unlockSlider.addEventListener('input', (e) => {
         document.getElementById('speedDisplay').innerText = `${currentSpeed} km/h`;
         updatePasUI();
         updateLightUI();
+        const refresh = (id, val, suffix = '') => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = `${val}${suffix}`;
+        };
+        refresh('tripDisplay', currentTrip, ' km');
+        refresh('rangeDisplay', currentRange, ' km');
+        refresh('odoDisplay', currentOdo, ' km');
+        refresh('voltDisplay', currentVoltage, ' V');
+        refresh('tempDisplay', currentTemp, ' °C');
+        refresh('currentDisplay', currentCurrent, ' mA');
+        refresh('bmsRelPctDisplay', currentBmsRelPct, ' %');
+        refresh('bmsRemainMahDisplay', currentBmsRemainMah, ' mAh');
+        refresh('bmsFullMahDisplay', currentBmsFullMah, ' mAh');
+        refresh('bmsNowPctDisplay', currentBmsNowPct, ' %');
+        refresh('bmsCycleDisplay', currentBmsCycle);
+        refresh('bmsChgCurMinDisplay', currentBmsChgCurMin, ' min');
+        refresh('bmsChgMaxMinDisplay', currentBmsChgMaxMin, ' min');
+        refresh('pasNumDisplay', currentPasNum);
     }
 });
 
@@ -380,12 +492,12 @@ unlockSlider.addEventListener('change', (e) => {
 	  
 function handleBikeData(event) {
     const buffer = new Uint8Array(event.target.value.buffer);
+    if (!validateBafangPacket(buffer)) return; // Drop corrupt/truncated frames
     const decoded = decodeBafangPacket(buffer);
 															
 	// Update global state variables
     if (decoded.type === 'pas') {
         currentPas = decoded.value;
-        isInitializedFromBike = true;
         if (!isScreenLocked) updatePasUI();
     }
     if (decoded.type === 'light') {
@@ -406,6 +518,26 @@ function handleBikeData(event) {
     if (decoded.type === 'bmsRelPct') currentBmsRelPct = decoded.value;
     if (decoded.type === 'bmsRemainMah') currentBmsRemainMah = decoded.value;
     if (decoded.type === 'bmsFullMah') currentBmsFullMah = decoded.value;
+    if (decoded.type === 'bmsNowPct') currentBmsNowPct = decoded.value;
+    if (decoded.type === 'bmsCycle') currentBmsCycle = decoded.value;
+    if (decoded.type === 'bmsChgCurMin') currentBmsChgCurMin = decoded.value;
+    if (decoded.type === 'bmsChgMaxMin') currentBmsChgMaxMin = decoded.value;
+    if (decoded.type === 'pasAck') {
+        currentPas = decoded.value;
+        if (!isScreenLocked) updatePasUI();
+    }
+    if (decoded.type === 'lightAck') {
+        currentLight = decoded.value === 1 ? "ON" : "OFF";
+        headlightState = (currentLight === "ON");
+        if (!isScreenLocked) updateLightUI();
+    }
+    if (decoded.type === 'pasNum') {
+        // Sanity-guard: a corrupt max would freeze the +/- buttons
+        if (decoded.value >= 1 && decoded.value <= 9) {
+            currentPasNum = decoded.value;
+            pasNumMax = decoded.value;
+        }
+    }
 
     // DOM Repaint Management
     if (isScreenLocked) {
@@ -433,6 +565,11 @@ function handleBikeData(event) {
         if (decoded.type === 'bmsRelPct') document.getElementById('bmsRelPctDisplay').innerText = `${currentBmsRelPct} %`;
         if (decoded.type === 'bmsRemainMah') document.getElementById('bmsRemainMahDisplay').innerText = `${currentBmsRemainMah} mAh`;
         if (decoded.type === 'bmsFullMah') document.getElementById('bmsFullMahDisplay').innerText = `${currentBmsFullMah} mAh`;
+        if (decoded.type === 'bmsNowPct') document.getElementById('bmsNowPctDisplay').innerText = `${currentBmsNowPct} %`;
+        if (decoded.type === 'bmsCycle') document.getElementById('bmsCycleDisplay').innerText = `${currentBmsCycle}`;
+        if (decoded.type === 'bmsChgCurMin') document.getElementById('bmsChgCurMinDisplay').innerText = `${currentBmsChgCurMin} min`;
+        if (decoded.type === 'bmsChgMaxMin') document.getElementById('bmsChgMaxMinDisplay').innerText = `${currentBmsChgMaxMin} min`;
+        if (decoded.type === 'pasNum') document.getElementById('pasNumDisplay').innerText = `${currentPasNum}`;
 																												   
 																																									 
     }
@@ -489,36 +626,33 @@ function handleBikeData(event) {
         if (document.getElementById('chk_bmsRelPct').checked) dataPoint.bmsRelPct = currentBmsRelPct;
         if (document.getElementById('chk_bmsRemainMah').checked) dataPoint.bmsRemainMah = currentBmsRemainMah;
         if (document.getElementById('chk_bmsFullMah').checked) dataPoint.bmsFullMah = currentBmsFullMah;
+        if (document.getElementById('chk_bmsNowPct').checked) dataPoint.bmsNowPct = currentBmsNowPct;
+        if (document.getElementById('chk_bmsCycle').checked) dataPoint.bmsCycle = currentBmsCycle;
+        if (document.getElementById('chk_bmsChgCurMin').checked) dataPoint.bmsChgCurMin = currentBmsChgCurMin;
+        if (document.getElementById('chk_bmsChgMaxMin').checked) dataPoint.bmsChgMaxMin = currentBmsChgMaxMin;
+        if (document.getElementById('chk_pasNum').checked) dataPoint.pasNum = currentPasNum;
 
         rideData.push(dataPoint);
-
-        // BATTERY OPTIMIZATION: Only stringify and save to storage every 10 data points
-        if (rideData.length % 10 === 0) {
-            localStorage.setItem('ride_data_backup', JSON.stringify(rideData));
-        }
+        scheduleBackup();
     }
 }
 
 document.getElementById('pasDownBtn').addEventListener('click', async () => {
-    let pasNum = typeof currentPas === 'number' ? currentPas : parseInt(currentPas, 10);
-    if (isNaN(pasNum)) pasNum = 0;
-    else pasNum = Math.max(0, pasNum - 1);
+    const pasNum = Math.max(0, parsePasBase() - 1);
 
     currentPas = pasNum;
     updatePasUI();
 
-    await sendHexCommand(COMMAND_PAYLOADS.PAS[0]);
+    await sendHexCommand(getPasCommand(pasNum));
 });
 
 document.getElementById('pasUpBtn').addEventListener('click', async () => {
-    let pasNum = typeof currentPas === 'number' ? currentPas : parseInt(currentPas, 10);
-    if (isNaN(pasNum)) pasNum = 0;
-    else pasNum = Math.min(4, pasNum + 1);
+    const pasNum = Math.min(pasNumMax, parsePasBase() + 1);
 
     currentPas = pasNum;
     updatePasUI();
 
-    await sendHexCommand(COMMAND_PAYLOADS.PAS[4]);
+    await sendHexCommand(getPasCommand(pasNum));
 });
 
 const lightBtn = document.getElementById('lightToggleBtn');
@@ -535,10 +669,10 @@ if (lightBtn) {
 
 document.getElementById('goBtn').addEventListener('click', async () => {
     for (let i = 0; i < 5; i++) {
-        await sendHexCommand(getPasCommand(4));
+        await sendHexCommand(getPasCommand(pasNumMax));
         await new Promise(resolve => setTimeout(resolve, 50));
     }
-    currentPas = 4;
+    currentPas = pasNumMax;
     updatePasUI();
 
     await sendHexCommand(COMMAND_PAYLOADS.HEADLIGHT_ON);
@@ -547,9 +681,12 @@ document.getElementById('goBtn').addEventListener('click', async () => {
     updateLightUI();
 });
 
-// Block context menu event triggered by long-press or right-click
-window.addEventListener('contextmenu', function (event) {
-    event.preventDefault();
+// Long-press menu is only blocked on the bike controls so PAS/light
+// buttons don't trigger a callout; page text elsewhere keeps default behavior.
+document.querySelectorAll('.bike-controls').forEach(el => {
+    el.addEventListener('contextmenu', function (event) {
+        event.preventDefault();
+    });
 });
 
 // Register Service Worker for PWA Caching			
