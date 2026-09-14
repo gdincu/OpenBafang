@@ -107,15 +107,19 @@ const KALMAN_SMOOTHING = 0.1;
 // Check for unsaved ride data recovery on page load
 window.onload = () => {
     const backup = localStorage.getItem('ride_data_backup');
-    if (backup) {
+    if (!backup) return;
+    try {
         const recoveredData = JSON.parse(backup);
-        if (recoveredData.length > 0 && confirm(`Found ${recoveredData.length} unsaved points from a previous session. Download them now?`)) {
+        if (Array.isArray(recoveredData) && recoveredData.length > 0
+            && confirm(`Found ${recoveredData.length} unsaved points from a previous session. Download them now?`)) {
             rideData = recoveredData;
             downloadLogs();
-        } else {
-            localStorage.removeItem('ride_data_backup');
+            return;
         }
+    } catch (err) {
+        console.warn("Could not parse ride backup:", err);
     }
+    localStorage.removeItem('ride_data_backup');
 };
 
 function updateDisplayVisibility() {
@@ -374,7 +378,9 @@ function downloadLogs() {
     const baseFilename = `bafang_ride_${timeStampStr}`;
 
     // --- 1. GENERATE CSV (Blob: data-URIs break on long rides) ---
-    const keys = Object.keys(rideData[0]);
+    // Union of every point's keys: a metric enabled mid-ride would otherwise
+    // be silently dropped because the header came from the first point only.
+    const keys = [...new Set(rideData.flatMap(row => Object.keys(row)))];
     const csvLines = [keys.join(",")];
     rideData.forEach(row => {
         csvLines.push(keys.map(key => {
@@ -389,7 +395,11 @@ function downloadLogs() {
     );
 
     // --- 2. GENERATE GPX (Blob, all logged e-bike fields as extensions) ---
-    const escXml = (v) => String(v).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+    // Escape via \u0026 so the entities survive tooling that decodes "&amp;".
+    const escXml = (v) => String(v)
+        .replace(/&/g, '\u0026amp;')
+        .replace(/</g, '\u0026lt;')
+        .replace(/>/g, '\u0026gt;');
     let gpxContent = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="OpenBafang">\n<trk>\n<name>${baseFilename}</name>\n<trkseg>\n`;
     
     rideData.forEach(row => {
@@ -491,7 +501,9 @@ unlockSlider.addEventListener('change', (e) => {
 
 	  
 function handleBikeData(event) {
-    const buffer = new Uint8Array(event.target.value.buffer);
+    // Respect the DataView window; .buffer alone can include an offset.
+    const view = event.target.value;
+    const buffer = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
     if (!validateBafangPacket(buffer)) return; // Drop corrupt/truncated frames
     const decoded = decodeBafangPacket(buffer);
 															

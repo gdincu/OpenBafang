@@ -41,25 +41,17 @@ export function validateBafangPacket(buffer) {
     return sum === buffer[buffer.length - 2];
 }
 
-// '02 01 89 01 05 90 03'  // 5
-const PAS_COMMANDS = [
-    '02 01 89 01 00 8B 03', // 0
-    '02 01 89 01 01 8C 03', // 1
-    '02 01 89 01 02 8D 03', // 2
-    '02 01 89 01 03 8E 03', // 3
-    '02 01 89 01 04 8F 03' // 4
-];
-
-// Single source of truth for PAS frames is PAS_COMMANDS + getPasCommand()
-// (a duplicate PAS table here drifted out of sync before - only 0 and 4).
+// '02 01 89 01 05 90 03'  // PAS 5 - checksum holds for every level.
+// NOTE: the array previously capped sending at level 4, which desynced the
+// UI on multi-level bikes; buildWriteFrame handles 0-255 directly.
 export const COMMAND_PAYLOADS = {
     HEADLIGHT_ON: '02 01 A3 01 01 A6 03',
     HEADLIGHT_OFF: '02 01 A3 01 00 A5 03'
 };
 
 export function getPasCommand(level) {
-    const lvl = Math.max(0, Math.min(PAS_COMMANDS.length - 1, level));
-    return PAS_COMMANDS[lvl];
+    const lvl = Number.isFinite(level) ? Math.max(0, Math.min(255, Math.round(level))) : 0;
+    return buildWriteFrame(BAFANG_COMMANDS.PAS, lvl);
 }
 
 function be16(buffer) {
@@ -104,7 +96,7 @@ export function decodeBafangPacket(buffer) {
             result = { type: 'trip', value: (((buffer[4] << 8) | buffer[5]) / 10).toFixed(1) };
             break;
         case BAFANG_COMMANDS.RANGE:
-            result = { type: 'range', value: Math.round(be16(buffer)) };
+            result = { type: 'range', value: Math.round(be16(buffer) / 10) };
             break;
         case BAFANG_COMMANDS.VOLTAGE:
             result = { type: 'voltage', value: (((buffer[4] << 8) | buffer[5]) / 1000).toFixed(1) };
