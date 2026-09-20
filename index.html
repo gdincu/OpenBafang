@@ -35,6 +35,7 @@
             <label><input type="checkbox" id="chk_bmsChgMaxMin"> Max Interval (min)</label>
             <label><input type="checkbox" id="chk_pasNum"> PAS Levels</label>
             <label><input type="checkbox" id="chk_light"> Headlight</label>
+            <label><input type="checkbox" id="chk_errorCode"> Error Code</label>
         </div>
     </details>
 	
@@ -66,7 +67,11 @@
         <button id="connectBtn">Connect</button>
         <button id="disconnectBtn" style="display:none;">Disconnect</button>
     </div>
-    
+
+    <label class="device-option">
+        <input type="checkbox" id="showAllDevices"> Show all nearby BLE devices
+    </label>
+
     <button id="exportBtn" disabled>Export CSV Log</button>
     
     <div class="card">
@@ -150,6 +155,10 @@
             <div class="metric" id="box_light" style="display:none;">
                 <div class="metric-title">Headlight</div>
                 <div class="metric-value" id="lightDisplay">--</div>
+            </div>
+            <div class="metric" id="box_errorCode" style="display:none;">
+                <div class="metric-title">Error Code</div>
+                <div class="metric-value" id="errorCodeDisplay">--</div>
             </div>
         </div>
     </div>

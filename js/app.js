@@ -1,4 +1,8 @@
-import { decodeBafangPacket, COMMAND_PAYLOADS, getPasCommand, buildWriteFrame, BAFANG_COMMANDS, validateBafangPacket } from './bafang-protocol.js';
+import { decodeBafangPacket, COMMAND_PAYLOADS, getPasCommand, buildWriteFrame, BAFANG_COMMANDS, validateBafangPacket, getErrorCodeName } from './bafang-protocol.js';
+
+const SERVICE_UUID = '0000fff0-0000-1000-8000-00805f9b34fb';
+const NOTIFY_UUID = '0000fff4-0000-1000-8000-00805f9b34fb';
+const WRITE_UUID = '0000fff3-0000-1000-8000-00805f9b34fb';
 
 class SimpleKalman {
     constructor(processNoise = 0.0005) { // 0.0005 is optimized for cycling
@@ -56,6 +60,7 @@ let currentPasNum = "--";
 // window can't overshoot; overwritten by the bike's pasNum notify (~1s).
 let pasNumMax = 4;
 let currentLight = "--";
+let currentErrorCode = "--";
 let currentAccuracy = 999;
 let writeCharacteristic = null;
 let headlightState = false;
@@ -64,6 +69,13 @@ function pasLevelToString(level) {
     const n = typeof level === 'number' ? level : parseInt(level, 10);
     if (!isNaN(n) && n > pasNumMax) return "WALK";
     return String(level);
+}
+
+// "8 (Motor hall sensor)" - raw code kept for logging, name for the UI.
+function formatErrorCode(code) {
+    const n = typeof code === 'number' ? code : parseInt(code, 10);
+    if (isNaN(n)) return String(code);
+    return `${n} (${getErrorCodeName(n)})`;
 }
 
 function updatePasUI() {
@@ -127,7 +139,7 @@ function updateDisplayVisibility() {
         'speed', 'battery', 'pas', 'voltage', 'range', 'trip', 'odo', 
         'current', 'bmsRelPct', 'bmsRemainMah', 
         'bmsFullMah', 'bmsNowPct', 'bmsCycle', 'bmsChgCurMin',
-        'bmsChgMaxMin', 'pasNum', 'temp', 'light'
+        'bmsChgMaxMin', 'pasNum', 'temp', 'light', 'errorCode'
     ];
     metrics.forEach(m => {
         const checkbox = document.getElementById(`chk_${m}`);
@@ -266,6 +278,7 @@ async function sendHexCommand(hexString) {
 }
 
 document.getElementById('connectBtn').addEventListener('click', async () => {
+    let connectStage = 'pick'; // 'pick' (requestDevice) vs 'gatt' (connect/service discovery)
     try {
         document.getElementById('status').innerHTML = `Status: <span class="status-badge status-searching">Connecting...</span>`;
         currentPas = "--";
@@ -275,6 +288,7 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         currentBmsCycle = "--";
         currentBmsChgCurMin = "--";
         currentBmsChgMaxMin = "--";
+        currentErrorCode = "--";
         pasNumMax = 4;
         headlightState = false;
         updatePasUI();
@@ -282,17 +296,23 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
         checkboxes.forEach(cb => cb.disabled = true);
 
-        bleDevice = await navigator.bluetooth.requestDevice({
-            filters: [{ name: 'DP E12.CAN' }],
-            optionalServices: ['0000fff0-0000-1000-8000-00805f9b34fb']
-        });
+        // Filter by the FFF0 service instead of the display name: a bike that
+        // lost its BLE name (or never had one) still advertises the service.
+        // The checkbox falls back to showing every nearby BLE device.
+        const showAllDevices = document.getElementById('showAllDevices');
+        bleDevice = await navigator.bluetooth.requestDevice(
+            showAllDevices && showAllDevices.checked
+                ? { acceptAllDevices: true, optionalServices: [SERVICE_UUID] }
+                : { filters: [{ services: [SERVICE_UUID] }], optionalServices: [SERVICE_UUID] }
+        );
         
+        connectStage = 'gatt';
         bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
         const server = await bleDevice.gatt.connect();
-        const service = await server.getPrimaryService('0000fff0-0000-1000-8000-00805f9b34fb');
-        const notifyChar = await service.getCharacteristic('0000fff4-0000-1000-8000-00805f9b34fb');
-		writeCharacteristic = await service.getCharacteristic('0000fff3-0000-1000-8000-00805f9b34fb');
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        const notifyChar = await service.getCharacteristic(NOTIFY_UUID);
+		writeCharacteristic = await service.getCharacteristic(WRITE_UUID);
 
         await notifyChar.startNotifications();
         notifyChar.addEventListener('characteristicvaluechanged', handleBikeData);
@@ -312,7 +332,16 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
         await requestWakeLock();
     } catch (error) {
         console.error("Bluetooth Error:", error);
-        document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">Connection Failed</span>`;
+        // Distinguish user-cancelled picker from a wrong device picked via
+        // "Show all": getPrimaryService rejects with NotFoundError when the
+        // device doesn't advertise FFF0.
+        let statusText = 'Connection Failed';
+        if (error && error.name === 'NotFoundError' && connectStage === 'pick') {
+            statusText = 'Cancelled';
+        } else if (connectStage === 'gatt' && error && (error.name === 'NotFoundError' || error.name === 'NetworkError')) {
+            statusText = 'No FFF0 service — pick the bike (uncheck Show all)';
+        }
+        document.getElementById('status').innerHTML = `Status: <span class="status-badge status-disconnected">${statusText}</span>`;
         const checkboxes = document.querySelectorAll('#configCard input[type="checkbox"]');
         checkboxes.forEach(cb => { if(cb.id !== 'chk_timestamp' && cb.id !== 'chk_latlon') cb.disabled = false; });
     }
@@ -335,6 +364,7 @@ function onDisconnected() {
     currentBmsCycle = "--";
     currentBmsChgCurMin = "--";
     currentBmsChgMaxMin = "--";
+    currentErrorCode = "--";
     pasNumMax = 4;
     headlightState = false;
     updatePasUI();
@@ -410,7 +440,7 @@ function downloadLogs() {
             
             const extKeys = [
                 'speed', 'battery', 'pas', 'pasNum', 'voltage', 'current',
-                'odo', 'trip', 'range', 'temp', 'light',
+                'odo', 'trip', 'range', 'temp', 'light', 'errorCode',
                 'bmsRelPct', 'bmsNowPct', 'bmsRemainMah', 'bmsFullMah', 'bmsCycle'
             ].filter(k => row[k] !== undefined);
             if (extKeys.length > 0) {
@@ -489,6 +519,7 @@ unlockSlider.addEventListener('input', (e) => {
         refresh('bmsChgCurMinDisplay', currentBmsChgCurMin, ' min');
         refresh('bmsChgMaxMinDisplay', currentBmsChgMaxMin, ' min');
         refresh('pasNumDisplay', currentPasNum);
+        refresh('errorCodeDisplay', formatErrorCode(currentErrorCode));
     }
 });
 
@@ -534,6 +565,7 @@ function handleBikeData(event) {
     if (decoded.type === 'bmsCycle') currentBmsCycle = decoded.value;
     if (decoded.type === 'bmsChgCurMin') currentBmsChgCurMin = decoded.value;
     if (decoded.type === 'bmsChgMaxMin') currentBmsChgMaxMin = decoded.value;
+    if (decoded.type === 'errorCode') currentErrorCode = decoded.value;
     if (decoded.type === 'pasAck') {
         currentPas = decoded.value;
         if (!isScreenLocked) updatePasUI();
@@ -582,6 +614,7 @@ function handleBikeData(event) {
         if (decoded.type === 'bmsChgCurMin') document.getElementById('bmsChgCurMinDisplay').innerText = `${currentBmsChgCurMin} min`;
         if (decoded.type === 'bmsChgMaxMin') document.getElementById('bmsChgMaxMinDisplay').innerText = `${currentBmsChgMaxMin} min`;
         if (decoded.type === 'pasNum') document.getElementById('pasNumDisplay').innerText = `${currentPasNum}`;
+        if (decoded.type === 'errorCode') document.getElementById('errorCodeDisplay').innerText = formatErrorCode(currentErrorCode);
 																												   
 																																									 
     }
@@ -643,6 +676,7 @@ function handleBikeData(event) {
         if (document.getElementById('chk_bmsChgCurMin').checked) dataPoint.bmsChgCurMin = currentBmsChgCurMin;
         if (document.getElementById('chk_bmsChgMaxMin').checked) dataPoint.bmsChgMaxMin = currentBmsChgMaxMin;
         if (document.getElementById('chk_pasNum').checked) dataPoint.pasNum = currentPasNum;
+        if (document.getElementById('chk_errorCode').checked) dataPoint.errorCode = currentErrorCode;
 
         rideData.push(dataPoint);
         scheduleBackup();

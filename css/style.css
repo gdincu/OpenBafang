@@ -39,6 +39,15 @@ body {
     margin-bottom: 15px;
 }
 
+.device-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #777;
+    font-size: 13px;
+    margin: -5px 0 15px;
+}
+
 button {
     padding: 14px;
     font-size: 15px;
