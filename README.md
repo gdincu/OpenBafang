@@ -12,22 +12,21 @@ A lightweight, mobile-friendly **Progressive Web App (PWA)** built to connect di
 ## Features
 
 *   **Web Bluetooth Integration:** Connects wirelessly to your bike's display to pull live hardware data.
-*   **SwiftFlow Protocol Support:** Decodes the documented SwiftFlow (`cn.bafang.client`) telemetry frames — speed, battery %, PAS + PAS-count, voltages/currents (BMS mV/mA and controller A/V variants), BMS + controller temperatures, BMS remaining/full capacity/cycles/intervals, cadence, calories, torque/throttle, heart rate, motor status, speed/current limits and wheel diameter — plus headlight/PAS acks, PIN status and version/info strings. Tested writes are assist level, headlight, BMS-info start/stop and PIN-status query. The **Device Settings** card additionally exposes experimental single-byte writes (max PAS levels, auto-off, sport/ECO mode, backlight, light sensitivity, maintenance mileage, controller power, rename, PIN auth/set/reset) derived from SwiftFlow code but untested on hardware — see `PROTOCOL.md §7`. Navigation (`0xA7`) and auto-drive (`0xB1`, app-side only in SwiftFlow 2.3.3) are intentionally not exposed.
-*   **Rich Telemetry Logging:** Tracks and records Speed, Battery %, Voltage, Current (mA), PAS Level, Temperature, Odometer, and exact BMS capacity metrics.
-*   **100% Client-Side & Offline:** No backend, no accounts. Installs directly to your home screen (PWA) and works completely offline once cached.
+*   **Telemetry Logging:** Tracks and records Speed, Battery %, Voltage, Current (mA), PAS Level, Temperature, Odometer, and exact BMS capacity metrics.
+*   **Client-Side & Offline:** No backend, no accounts. Installs directly to your home screen (PWA) and works completely offline once cached.
 *   **Dynamic Kalman Filtering:** Applies a 1D Kalman filter to smooth out GPS jitter at slow speeds, but automatically bypasses the filter at speeds >12 km/h to accurately hug road curves while cycling.
-*   **Dual Zero-Movement Drift Prevention:** Checks both the GPS Doppler speed and the bike's motor speed to completely freeze coordinate logging when you are standing still (< 1.5 km/h), preventing "spiderwebbing" at traffic lights.
-*   **Extreme Battery Optimization:** 
+*   **Dual Zero-Movement Drift Prevention:** Checks both the GPS Doppler speed and the bike's motor speed to completely freeze coordinate logging when you are standing still (< 0.5 km/h), preventing "spiderwebbing" at traffic lights.
+*   **Battery Optimization:** 
     *   Batches `localStorage` saves to minimize CPU usage.
     *   Pauses visual DOM updates when the screen is locked.
-    *   Built-in **OLED Lock Screen** turns off most screen pixels to save power while keeping the browser active, displaying only your live Speed and Battery %.
+    *   Built-in **Lock Screen** turns off most screen pixels to save power while keeping the browser active, displaying only your live Speed and Battery %.
 *   **Dual Data Export:** Automatically generates both a `.csv` file for raw data analysis and a `.gpx` file with custom `<extensions>` for mapping your route alongside battery and speed data.
 
 ## How to Use
 
 1. Open the app in your browser / install it to your home screen
-2. (Optional) Under **Configure Log & Display Metrics**, check the boxes for the telemetry data you wish to track (e.g., Voltage, Current, Temp)
-3. Turn on your e-bike, then tap **Connect to Bike** and select your DP E12.CAN display from the Bluetooth pairing menu
+2. (Optional) Under **Metrics**, check the boxes for the telemetry data you wish to track (e.g., Voltage, Current, Temp)
+3. Turn on your e-bike, then tap **Connect** and select your DP E12.CAN display from the Bluetooth pairing menu
 4. (Optional) Tap **Lock Screen** before putting the phone in your pocket to save battery. Slide to unlock when you take it out
 5. When your ride is finished, tap **Disconnect**
 6. Tap **Export CSV Log** to generate and download your `.csv` and `.gpx` files

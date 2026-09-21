@@ -5,12 +5,11 @@ Bafang's BLE displays to talk to the **SwiftFlow** smartphone app
 (package `cn.bafang.client`, by Bafang Electric (Suzhou), app version 2.3.3).
 
 SwiftFlow is Bafang's *older-generation* app, paired with the UART-era hub
-systems. The newer **Bafang Go** app targets the CAN-bus generation
-(M500/M600, DP C24x/C25x etc.); the two apps/protocol families are related but
-not identical. Bikes that pair with SwiftFlow are **not** supported by
-Bafang Go.
+systems. The newer **Bafang Go** app targets CAN-bus generation
+(M500/M600, DP C24x/C25x etc.) instead; the two apps/protocol families are related but
+not identical.
 
-Verified against:
+**Verified against:**
 
 | Component | Model |
 |---|---|
@@ -27,8 +26,6 @@ Native bundle (`assets/index.android.bundle`, command call sites).
 Everything in §2–§4 is read directly from that code; sections marked
 *(observed)* were confirmed on the bike's BLE traffic as well.
 
-To our knowledge no other public documentation of this command set exists.
-
 ---
 
 ## 1. BLE transport
@@ -42,7 +39,7 @@ To our knowledge no other public documentation of this command set exists.
 Frames written to `FFF3` are sent **plaintext** — SwiftFlow only applies its
 `NativeHelper.bafangEncry` encryption on the separate CAN-node channel
 (service characteristic `49d55e56-76b1-11e9-8f9e-2a86e4085a59`, used by
-CAN-generation systems, not by this bike).
+CAN-generation systems).
 
 SwiftFlow matches devices by advertisement: UART-type Bafang BLE modules
 advertise manufacturer data `F0 FF`, CAN-type systems use a 16-byte
@@ -131,7 +128,7 @@ after the corresponding write.
 | 71 | `0x47` | `EBoxInfTrip(km)` | 2 | BE / 10 → km |
 | 72 | `0x48` | `EBoxInfMaxSpeed` | 2 | BE |
 | 73 | `0x49` | `EBoxInfAverageSpeed` | 2 | BE |
-| 74 | `0x4A` | `EBoxInfPASLevel` | 1 | assist level; **15 = walk on this bike** |
+| 74 | `0x4A` | `EBoxInfPASLevel` | 1 | assist level |
 | 75 | `0x4B` | `EBoxInfCadence` | 2 | BE, rpm |
 | 76 | `0x4C` | `EBoxInfMaintainMile` | ? | service mileage |
 | 80 | `0x50` | `EBoxInfBatteryCapacity_AH` | 1 | value × 0.1 → Ah |
@@ -202,8 +199,6 @@ PIN status req : 02 01 D5 01 01 D8 03
 ---
 
 ## 4. Connection sequence
-
-As observed on this bike and consistent with SwiftFlow's flow:
 
 1. Connect GATT, subscribe to notifications on `FFF4`.
 2. Send **BMS info request** `0xA1` = 1 (SwiftFlow calls this when the app
@@ -285,7 +280,7 @@ bike, levels are written linearly and walk is *reported* as 15 on `0x4A`.
 ## 6. Error codes (CMD `0x09`)
 
 Source: DP E12.CAN user manual (BF-UM-C-DP E12-EN), section 7.7; the same
-table appears across Bafang display manuals.
+table appears across other Bafang display manuals.
 
 | Code | Meaning | Code | Meaning |
 |-----|-----------------------------|-----|--------------------------------|
@@ -314,16 +309,11 @@ table appears across Bafang display manuals.
 * **Walk assist engage** — SwiftFlow itself has no walk-engage write for this
   generation (its level +/- logic is purely linear via `0x89`); walk is
   engaged from the display keypad (per the DP E12 manual: long-press DOWN) and
-  merely *reported* on `0x4A` as 15. It likely cannot be triggered over BLE at
+  merely *reported* on `0x4A` as 15. Most likely it cannot be triggered over BLE at
   all on this hardware.
-* **Untested write commands** — device rename, PIN, auto-off, sport/ECO,
-  backlight etc. are implemented in SwiftFlow and now exposed by this app
-  (Device Settings card), but payloads beyond the single-byte settings
-  (PIN strings, navigation) are derived from code only and have not been
-  exercised on hardware.
 * **Exact meaning of `0x37` motor status bits** and the scale of `0x48`/`0x49`
   (max/average speed) and `0x4C` are not decoded by SwiftFlow either; this app
-  applies `/10` inferred from the speed frames — verify against live values.
+  applies `/10` inferred from the speed frames.
 * **Which frames this hardware actually broadcasts** — per a full ride log
   captured with the BafangCANTester (2026-09-20) plus OpenBafang sessions
   since, the DP E12/CRS10D combo broadcasts: `0x09, 0x40, 0x44, 0x46, 0x47,
@@ -345,8 +335,9 @@ table appears across Bafang display manuals.
   app-side clamp to the bike's reported max is correct behaviour.
 * **About-screen data (controller/HMI/battery/sensor versions)** comes from
   the `0x0B` basic-information long-frame. The CAN-node registry reads
-  don't apply to UART-type hardware, and this app no longer probes them. `0x0B` arrives as a repeated `AB 01 0B … CHK AA 55`
-  long-frame (≈150 B payload, e.g. `DPE12CM10101.2!DP E12.C 1.0!…`) and is now
+  don't apply to UART-type hardware, and this app no longer probes them. 
+  `0x0B` arrives as a repeated `AB 01 0B … CHK AA 55` long-frame (≈150 B payload, 
+  e.g. `DPE12CM10101.2!DP E12.C 1.0!…`) and is now
   reassembled into the HMI/controller/battery cards; the sensor `S/N` fields
   arrive empty on this bike. (SwiftFlow's About screens were user-reported
   all-zero on 2026-09-20 — its HCI capture showed no `0x0B` in that session —
@@ -372,21 +363,3 @@ table appears across Bafang display manuals.
   firmware.
 * Remaining unknown notification IDs (frames are logged with raw hex by the
   decoder when unmatched).
-
-## 8. Method & sources
-
-* Decompiled sources in `E:\repos\SwiftFlow` (jadx output):
-  * `app/src/main/java/com/pairlink/lib/BafangCanConst.java` — full command
-    ID registry (the `EBoxInf*` names used throughout this project).
-  * `app/src/main/java/com/pairlink/lib/PlBleService.java` — frame
-    construction (`gen_uart_cmd`, `process_uart_cmd`), parsing
-    (`process_uart_pdu`, `UartInfo.update_value`), scaling, long-frame
-    envelope, PAS_NUM tables.
-  * `app/src/main/java/cn/bafang/client/api/PlBleApi.java` — the
-    `processCanCmd` dispatch between the two stacks.
-  * `app/src/main/assets/index.android.bundle` — app-level behaviour
-    (when each command is sent, sport/eco encoding, auto-off clamping).
-* Runtime verification: unmatched frames are logged with raw hex by this
-  app's decoder (`decodeBafangPacket`).
-* Community context for the CAN-node generation: Bafang_M500_M600,
-  besst-reference, OpenBafangTool (see §5).
