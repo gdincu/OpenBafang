@@ -14,7 +14,7 @@ Verified against:
 
 | Component | Model |
 |---|---|
-| Motor | Bafang FM G311.250D (250 W rear hub) |
+| Motor | Bafang FM G311.250D (250 W front hub) |
 | Controller | CRS10D.350.FC1 |
 | Display (HMI) | DP E12.CAN (label: DPE12CM10101.2) |
 | App protocol | SwiftFlow (`cn.bafang.client` v2.3.3) over BLE (GATT service `FFF0`) |
@@ -51,8 +51,9 @@ as Bafang. This app instead matches the `FFF0` service so bikes with a
 missing/changed BLE name are still discoverable.
 
 On connect SwiftFlow: subscribes to `FFF4` notifications, reads the device
-name, then issues the version/base-info requests (§4) as needed. This app
-additionally sends the BMS-info request (`0xA1`=1) right away — see §4.
+name, then issues the version/base-info requests (§4) as needed (including
+`0xA1`=1 when battery detail is missing). This app sends the same requests
+up front — see §4.
 
 ---
 
@@ -90,9 +91,10 @@ switches to a chunked envelope (`gen_uart_long_cmd`):
 
 ```
 AA 01 CMD LEN_HI LEN_LO          (start)
-02 | 19 data bytes               (chunk, sequence number = chunk index from 02)
-03 | <up to 19 data bytes>       (final chunk, sequence continues)
-CHK AA 55                        (terminator; CHK = byte sum of all chunks)
+SN | up to 19 data bytes         (chunk; SN starts at 02, +1 per chunk)
+SN | up to 19 data bytes         (final chunk, SN continues, e.g. 09)
+CHK AA 55                        (terminator; CHK = sum of reassembled
+                                   payload bytes mod 256, SN bytes excluded)
 ```
 
 > OpenBafang reassembles this envelope on receive (`feedLongFrame` in
@@ -149,12 +151,15 @@ after the corresponding write.
 | 114 | `0x72` | `EBoxInfPASnum` | 1 | max assist levels (3/4/5/9) |
 | 130 | `0x82` | `EBoxResCurrentLimit(A)` | 1 | A |
 | 135 | `0x87` | `EBoxResSpeedLimit(km/hr)` | 1 | km/h |
+| 137 | `0x89` | `EBoxResPASLevel` | 1 | PAS write ack (echoes requested level) |
 | 139 | `0x8B` | `EBoxResWheelDiameter(inch)` | 2 | BE / 10 → inch |
+| 162 | `0xA2` | `EBoxResDevice_Name` | n | rename ack (echoes name string) |
 | 163 | `0xA3` | `EBoxResHeadLight` | 1 | headlight write ack |
 | 209 | `0xD1` | `EBoxInfSensor_Model` | n | hex string |
 | 210 | `0xD2` | `EBoxInfTorque` | 2 | BE |
 | 211 | `0xD3` | `EBoxInfTwist` | 2 | BE (throttle) |
 | 212 | `0xD4` | `EBoxInfHeartRate` | 1 | bpm |
+| 213 | `0xD5` | `EBoxInfPINStatus` | 1 | PIN status notify: 0=UNSET, 1=UNAUTH, 2=AUTH |
 | 214 | `0xD6` | `EBoxRes_SetPIN` | 1 | PIN ack |
 
 *(IDs 162/213 also appear as write commands — see below. The `2`-suffixed
@@ -320,16 +325,18 @@ table appears across Bafang display manuals.
   (max/average speed) and `0x4C` are not decoded by SwiftFlow either; this app
   applies `/10` inferred from the speed frames — verify against live values.
 * **Which frames this hardware actually broadcasts** — per a full ride log
-  captured with the BafangCANTester (2026-09-20), the DP E12/CRS10D combo
-  broadcasts: `0x09, 0x40, 0x44, 0x46, 0x47, 0x4A, 0x60, 0x61, 0x62, 0x63,
-  0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x71, 0x72` (+ acks `0x89`,
-  `0xA3`). `0x4B/0x70/0xD2/D3` appear in the stream but carry zero on this
-  hardware, and the remaining SwiftFlow IDs (`0x0B, 0x37, 0x41, 0x42, 0x43,
-  0x45, 0x48, 0x49, 0x50, 0x82, 0x87, 0x8B, 0xD1, 0xD4`) were never observed —
+  captured with the BafangCANTester (2026-09-20) plus OpenBafang sessions
+  since, the DP E12/CRS10D combo broadcasts: `0x09, 0x40, 0x44, 0x46, 0x47,
+  0x4A, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A,
+  0x71, 0x72` as short frames, plus `0x0B` basic-info and `0xD1`
+  sensor-model as long-frames (`0x0B` repeats continuously; `0xD1` carries
+  a 1-byte empty payload on this bike) (+ acks `0x89`, `0xA3`, notify
+  `0xD5`). `0x4B/0x70/0xD2/D3` appear in the stream but carry zero on this
+  hardware, and the remaining SwiftFlow IDs (`0x37, 0x41, 0x42, 0x43,
+  0x45, 0x48, 0x49, 0x50, 0x82, 0x87, 0x8B, 0xD4`) were never observed —
   they belong to other bike generations sharing the app. No additional
-  "session/query" unlock was found beyond `0xA1`=1: SwiftFlow's JS layer
-  never calls `APPGet_Version` on the FFF3 path, so unsupported tiles simply
-  stay empty on this bike.
+  "session/query" unlock was found beyond `0xA1`=1 and `0xD5`=1, so
+  unsupported tiles simply stay empty on this bike.
 * **`0x72` max-PAS write is ignored by this hardware** (tested 2026-09-20 on
   DP E12/CRS10D): writing `3`/`5`/`9` produces no ack change and the `0x72`
   notify stays at 4 — the level count on this generation is fixed by the
@@ -337,9 +344,8 @@ table appears across Bafang display manuals.
   though SwiftFlow exposes the option (it serves other generations). The
   app-side clamp to the bike's reported max is correct behaviour.
 * **About-screen data (controller/HMI/battery/sensor versions)** comes from
-  the `0x0B` basic-information long-frame and from the CAN-node registry
-  reads. The CAN-node queries don't apply to UART-type hardware (no answers,
-  fast-fail skips them). `0x0B` arrives as a repeated `AB 01 0B … CHK AA 55`
+  the `0x0B` basic-information long-frame. The CAN-node registry reads
+  don't apply to UART-type hardware, and this app no longer probes them. `0x0B` arrives as a repeated `AB 01 0B … CHK AA 55`
   long-frame (≈150 B payload, e.g. `DPE12CM10101.2!DP E12.C 1.0!…`) and is now
   reassembled into the HMI/controller/battery cards; the sensor `S/N` fields
   arrive empty on this bike. (SwiftFlow's About screens were user-reported
@@ -351,15 +357,19 @@ table appears across Bafang display manuals.
   strings) at connect, mirroring SwiftFlow's connect-time read
   (PlBleService.java:1923).
 * **HCI snoop capture of a full SwiftFlow session** (2026-09-20, 7,101 ATT
-  PDUs) settles the question definitively: SwiftFlow's writes on this bike
-  are exactly `0xA1`=1/0 (BMS info start/stop), `0x89` (PAS), `0xA3`
-  (headlight) and `0xD5`=1 (PIN status request) — no other commands. Its
-  notification stream contains only the known CMD set (plus `0x50`, which
-  broadcasts ~13× more often than the rest) and **no** `0x0B` basic-info
-  frame. The bike's GATT table also contains a second service `FFE0`
-  (write `FFE3` / notify `FFE4`) that SwiftFlow never touches. Conclusion:
-  controller/battery/sensor versions are not retrievable over BLE on this
-  firmware; the About screens render that empty state as zeros.
+  PDUs): SwiftFlow's writes on this bike are exactly `0xA1`=1/0 (BMS info
+  start/stop), `0x89` (PAS), `0xA3` (headlight) and `0xD5`=1 (PIN status
+  request) — no other commands. Its notification stream contains only the
+  known CMD set (plus `0x50`, which broadcasts ~13× more often than the
+  rest); that particular capture showed **no** `0x0B` basic-info frame, but
+  later OpenBafang sessions observe the bike spamming it continuously, so
+  its absence there was session-dependent, not a firmware limitation. The
+  bike's GATT table also contains a second service `FFE0` (write `FFE3` /
+  notify `FFE4`) that SwiftFlow never touches. Conclusion: panel,
+  controller and battery SW/HW/serials are retrievable over BLE via the
+  `0x0B` long-frame (sensor fields arrive empty; no battery Model on this
+  path); only the CAN-node registry versions are unavailable on this
+  firmware.
 * Remaining unknown notification IDs (frames are logged with raw hex by the
   decoder when unmatched).
 
