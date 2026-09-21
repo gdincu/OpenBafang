@@ -1,7 +1,9 @@
 # OpenBafang
 
-A lightweight, mobile-friendly **Progressive Web App (PWA)** built to connect directly to Bafang e-bike CAN-bus controllers (such as the DP E12.CAN display) via Web Bluetooth. 
-<br><br>It logs high-precision telemetry, tracks your ride using device GPS (with smart distance filtering), and allows you to export clean CSV and GPX logs.
+A lightweight, mobile-friendly **Progressive Web App (PWA)** built to connect directly to Bafang e-bike BLE displays (such as the DP E12.CAN, UART-era hub generation) via Web Bluetooth.
+<br><br>It logs high-precision telemetry, tracks your ride using device GPS (with smart distance filtering, plus bike-only CSV logging when GPS is unavailable), and allows you to export clean CSV and GPX logs.
+
+> **Protocol documentation:** see [PROTOCOL.md](PROTOCOL.md) for the reverse-engineered SwiftFlow (`cn.bafang.client`) BLE frame format, command ID table and error codes, plus their relationship to Bafang's CAN/UART generations.
 
 <img width="400" height="642" alt="2" src="https://github.com/user-attachments/assets/6ada77d3-9f5b-418a-9b19-602cf1ffc355" />
 <img width="400" height="642" alt="1" src="https://github.com/user-attachments/assets/3be03736-9a69-4ed7-b863-ae27166bf82e" />
@@ -10,6 +12,7 @@ A lightweight, mobile-friendly **Progressive Web App (PWA)** built to connect di
 ## Features
 
 *   **Web Bluetooth Integration:** Connects wirelessly to your bike's display to pull live hardware data.
+*   **SwiftFlow Protocol Support:** Decodes the documented SwiftFlow (`cn.bafang.client`) telemetry frames — speed, battery %, PAS + PAS-count, voltages/currents (BMS mV/mA and controller A/V variants), BMS + controller temperatures, BMS remaining/full capacity/cycles/intervals, cadence, calories, torque/throttle, heart rate, motor status, speed/current limits and wheel diameter — plus headlight/PAS acks, PIN status and version/info strings. Tested writes are assist level, headlight, BMS-info start/stop and PIN-status query. The **Device Settings** card additionally exposes experimental single-byte writes (max PAS levels, auto-off, sport/ECO mode, backlight, light sensitivity, maintenance mileage, controller power, rename, PIN auth/set/reset) derived from SwiftFlow code but untested on hardware — see `PROTOCOL.md §7`. Navigation (`0xA7`) and auto-drive (`0xB1`, app-side only in SwiftFlow 2.3.3) are intentionally not exposed.
 *   **Rich Telemetry Logging:** Tracks and records Speed, Battery %, Voltage, Current (mA), PAS Level, Temperature, Odometer, and exact BMS capacity metrics.
 *   **100% Client-Side & Offline:** No backend, no accounts. Installs directly to your home screen (PWA) and works completely offline once cached.
 *   **Dynamic Kalman Filtering:** Applies a 1D Kalman filter to smooth out GPS jitter at slow speeds, but automatically bypasses the filter at speeds >12 km/h to accurately hug road curves while cycling.

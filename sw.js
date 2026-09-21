@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'bafang-tracker-v5';
-const DYNAMIC_CACHE = 'bafang-dynamic-v5';
+const STATIC_CACHE = 'bafang-tracker-v15';
+const DYNAMIC_CACHE = 'bafang-dynamic-v15';
 
 const ASSETS = [
   './index.html',

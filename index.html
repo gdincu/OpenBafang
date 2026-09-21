@@ -18,14 +18,14 @@
             <label><input type="checkbox" id="chk_timestamp" checked disabled> Timestamp</label>
             <label><input type="checkbox" id="chk_latlon" checked disabled> Lat / Lon / Alt</label>
             <label><input type="checkbox" id="chk_speed" checked> Speed</label>
-            <label><input type="checkbox" id="chk_battery" checked> Battery %</label>
+            <label><input type="checkbox" id="chk_battery" checked> Battery % (0x64)</label>
             <label><input type="checkbox" id="chk_odo" checked> Odometer</label>
-            <label><input type="checkbox" id="chk_temp"> Battery Temp</label>
+            <label><input type="checkbox" id="chk_temp"> BMS Temp (0x60)</label>
             <label><input type="checkbox" id="chk_pas"> PAS Level</label>
-            <label><input type="checkbox" id="chk_voltage"> Voltage</label>
+            <label><input type="checkbox" id="chk_voltage"> BMS Volt (0x61)</label>
             <label><input type="checkbox" id="chk_range"> Est. Range</label>
             <label><input type="checkbox" id="chk_trip"> Trip Dist.</label>
-            <label><input type="checkbox" id="chk_current"> Current (mA)</label>
+            <label><input type="checkbox" id="chk_current"> BMS Curr (0x62)</label>
             <label><input type="checkbox" id="chk_bmsRelPct"> BMS Rel %</label>
             <label><input type="checkbox" id="chk_bmsRemainMah"> Rem. Cap (mAh)</label>
             <label><input type="checkbox" id="chk_bmsFullMah"> Full Cap (mAh)</label>
@@ -36,6 +36,29 @@
             <label><input type="checkbox" id="chk_pasNum"> PAS Levels</label>
             <label><input type="checkbox" id="chk_light"> Headlight</label>
             <label><input type="checkbox" id="chk_errorCode"> Error Code</label>
+            <label><input type="checkbox" id="chk_cadence"> Cadence (rpm)</label>
+            <label><input type="checkbox" id="chk_currentA"> Ctrl Curr (0x41)</label>
+            <label><input type="checkbox" id="chk_voltageV"> Ctrl Volt (0x42)</label>
+            <label><input type="checkbox" id="chk_batteryCap"> Batt % (0x43)</label>
+            <label><input type="checkbox" id="chk_tempC"> Ctrl Temp (0x45)</label>
+            <label><input type="checkbox" id="chk_maxSpeed"> Max Speed</label>
+            <label><input type="checkbox" id="chk_avgSpeed"> Avg Speed</label>
+            <label><input type="checkbox" id="chk_motorStatus"> Motor Status</label>
+            <label><input type="checkbox" id="chk_torque"> Torque Signal</label>
+            <label><input type="checkbox" id="chk_twist"> Twist/Throttle</label>
+            <label><input type="checkbox" id="chk_heartRate"> Heart Rate</label>
+            <label><input type="checkbox" id="chk_capacityAh"> Capacity (Ah)</label>
+            <label><input type="checkbox" id="chk_maintainMile"> Maint. Mile</label>
+            <label><input type="checkbox" id="chk_calories"> Calories</label>
+            <label><input type="checkbox" id="chk_speedLimit"> Speed Limit</label>
+            <label><input type="checkbox" id="chk_currentLimit"> Current Limit</label>
+            <label><input type="checkbox" id="chk_wheelDiameter"> Wheel Diam.</label>
+            <label><input type="checkbox" id="chk_sensorModel"> Sensor Model</label>
+            <label><input type="checkbox" id="chk_pinStatus"> PIN Status</label>
+            <label><input type="checkbox" id="chk_fwVersion"> FW Version</label>
+            <label><input type="checkbox" id="chk_hmiInfo"> HMI Info</label>
+            <label><input type="checkbox" id="chk_controllerInfo"> Controller Info</label>
+            <label><input type="checkbox" id="chk_batteryInfo"> Battery Info</label>
         </div>
     </details>
 	
@@ -55,10 +78,89 @@
 					<span>+</span>
 				</button>
 			</div>
-			<button id="lightToggleBtn" class="light-btn" title="Toggle Headlight">
+            <button id="lightToggleBtn" class="light-btn" title="Toggle Headlight">
 				<span class="light-icon">💡</span>
 			</button>
 			<button id="goBtn" class="go-btn" title="Go">🚴</button>
+		</div>
+	</details>
+
+	<!-- Device Settings Card -->
+	<details class="card" id="settingsCard">
+		<summary><b>Device Settings</b></summary>
+		<div class="settings-list">
+			<div class="setting-row">
+				<label>Max PAS levels</label>
+				<select id="maxPasSelect">
+					<option value="3">3</option>
+					<option value="4" selected>4</option>
+					<option value="5">5</option>
+					<option value="9">9</option>
+				</select>
+				<button id="maxPasBtn" class="mini-btn">Set</button>
+			</div>
+			<div class="setting-row">
+				<label>Auto-Off (min)</label>
+				<select id="autoOffSelect">
+					<option value="1">1</option>
+					<option value="2">2</option>
+					<option value="3">3</option>
+					<option value="4">4</option>
+					<option value="5">5</option>
+					<option value="6">6</option>
+					<option value="7">7</option>
+					<option value="8">8</option>
+					<option value="9">9</option>
+					<option value="255">Always on</option>
+				</select>
+				<button id="autoOffBtn" class="mini-btn">Set</button>
+			</div>
+			<div class="setting-row">
+				<label>Ride Mode</label>
+				<select id="modeSelect">
+					<option value="sport">Sport</option>
+					<option value="eco">ECO</option>
+				</select>
+				<button id="modeBtn" class="mini-btn">Set</button>
+			</div>
+			<div class="setting-row">
+				<label>Backlight</label>
+				<input type="number" id="backlightInput" min="0" max="255" value="3">
+				<button id="backlightBtn" class="mini-btn">Set</button>
+			</div>
+			<div class="setting-row">
+				<label>Light Sens.</label>
+				<input type="number" id="lightSensInput" min="0" max="255" value="3">
+				<button id="lightSensBtn" class="mini-btn">Set</button>
+			</div>
+			<div class="setting-row">
+				<label>Maintain km</label>
+				<input type="number" id="maintainMileInput" min="0" max="255" value="0">
+				<button id="maintainMileBtn" class="mini-btn">Set</button>
+			</div>
+			<div class="setting-row">
+				<label>Power</label>
+				<button id="powerOnBtn" class="mini-btn">On</button>
+				<button id="powerOffBtn" class="mini-btn danger">Off</button>
+			</div>
+			<div class="setting-row">
+				<label>Rename</label>
+				<input type="text" id="deviceNameInput" maxlength="24" placeholder="Display name (max 24)">
+				<button id="renameBtn" class="mini-btn">Set</button>
+			</div>
+			<div class="setting-row">
+				<label>PIN (4)</label>
+				<input type="text" id="pinAuthInput" maxlength="4" inputmode="numeric" placeholder="Auth PIN">
+				<button id="pinAuthBtn" class="mini-btn">Auth</button>
+				<button id="pinStatusBtn" class="mini-btn">Status</button>
+			</div>
+			<div class="setting-row">
+				<label>PIN (8)</label>
+				<input type="text" id="pinSetInput" maxlength="8" inputmode="numeric" placeholder="New PIN">
+				<button id="pinSetBtn" class="mini-btn">Set</button>
+				<button id="pinResetBtn" class="mini-btn danger">Reset</button>
+			</div>
+			<div id="ackStatus" class="ack-status">Last ack: --</div>
 		</div>
 	</details>
 
@@ -97,7 +199,7 @@
                 <div class="metric-value" id="pasDisplay">--</div>
             </div>
             <div class="metric" id="box_voltage" style="display:none;">
-                <div class="metric-title">Voltage</div>
+                <div class="metric-title">BMS Volt (0x61)</div>
                 <div class="metric-value" id="voltDisplay">-- V</div>
             </div>
             <div class="metric" id="box_range" style="display:none;">
@@ -113,7 +215,7 @@
                 <div class="metric-value" id="odoDisplay">-- km</div>
             </div>
             <div class="metric" id="box_current" style="display:none;">
-                <div class="metric-title">Current</div>
+                <div class="metric-title">BMS Curr (0x62)</div>
                 <div class="metric-value" id="currentDisplay">-- mA</div>
             </div>
             <div class="metric" id="box_bmsRelPct" style="display:none;">
@@ -149,7 +251,7 @@
                 <div class="metric-value" id="pasNumDisplay">--</div>
             </div>
             <div class="metric" id="box_temp" style="display:none;">
-                <div class="metric-title">Batt. Temp</div>
+                <div class="metric-title">BMS Temp (0x60)</div>
                 <div class="metric-value" id="tempDisplay">-- °C</div>
             </div>
             <div class="metric" id="box_light" style="display:none;">
@@ -160,8 +262,107 @@
                 <div class="metric-title">Error Code</div>
                 <div class="metric-value" id="errorCodeDisplay">--</div>
             </div>
+            <div class="metric" id="box_cadence" style="display:none;">
+                <div class="metric-title">Cadence</div>
+                <div class="metric-value" id="cadenceDisplay">-- rpm</div>
+            </div>
+            <div class="metric" id="box_currentA" style="display:none;">
+                <div class="metric-title">Ctrl Curr (0x41)</div>
+                <div class="metric-value" id="currentADisplay">-- A</div>
+            </div>
+            <div class="metric" id="box_voltageV" style="display:none;">
+                <div class="metric-title">Ctrl Volt (0x42)</div>
+                <div class="metric-value" id="voltageVDisplay">-- V</div>
+            </div>
+            <div class="metric" id="box_batteryCap" style="display:none;">
+                <div class="metric-title">Batt % (0x43)</div>
+                <div class="metric-value" id="batteryCapDisplay">-- %</div>
+            </div>
+            <div class="metric" id="box_tempC" style="display:none;">
+                <div class="metric-title">Ctrl Temp (0x45)</div>
+                <div class="metric-value" id="tempCDisplay">-- °C</div>
+            </div>
+            <div class="metric" id="box_maxSpeed" style="display:none;">
+                <div class="metric-title">Max Speed</div>
+                <div class="metric-value" id="maxSpeedDisplay">-- km/h</div>
+            </div>
+            <div class="metric" id="box_avgSpeed" style="display:none;">
+                <div class="metric-title">Avg Speed</div>
+                <div class="metric-value" id="avgSpeedDisplay">-- km/h</div>
+            </div>
+            <div class="metric" id="box_motorStatus" style="display:none;">
+                <div class="metric-title">Motor Status</div>
+                <div class="metric-value" id="motorStatusDisplay">--</div>
+            </div>
+            <div class="metric" id="box_torque" style="display:none;">
+                <div class="metric-title">Torque Signal</div>
+                <div class="metric-value" id="torqueDisplay">--</div>
+            </div>
+            <div class="metric" id="box_twist" style="display:none;">
+                <div class="metric-title">Twist/Throttle</div>
+                <div class="metric-value" id="twistDisplay">--</div>
+            </div>
+            <div class="metric" id="box_heartRate" style="display:none;">
+                <div class="metric-title">Heart Rate</div>
+                <div class="metric-value" id="heartRateDisplay">-- bpm</div>
+            </div>
+            <div class="metric" id="box_capacityAh" style="display:none;">
+                <div class="metric-title">Capacity</div>
+                <div class="metric-value" id="capacityAhDisplay">-- Ah</div>
+            </div>
+            <div class="metric" id="box_maintainMile" style="display:none;">
+                <div class="metric-title">Maint. Mile</div>
+                <div class="metric-value" id="maintainMileDisplay">-- km</div>
+            </div>
+            <div class="metric" id="box_calories" style="display:none;">
+                <div class="metric-title">Calories</div>
+                <div class="metric-value" id="caloriesDisplay">-- kcal</div>
+            </div>
+            <div class="metric" id="box_speedLimit" style="display:none;">
+                <div class="metric-title">Speed Limit</div>
+                <div class="metric-value" id="speedLimitDisplay">-- km/h</div>
+            </div>
+            <div class="metric" id="box_currentLimit" style="display:none;">
+                <div class="metric-title">Current Limit</div>
+                <div class="metric-value" id="currentLimitDisplay">-- A</div>
+            </div>
+            <div class="metric" id="box_wheelDiameter" style="display:none;">
+                <div class="metric-title">Wheel Diameter</div>
+                <div class="metric-value" id="wheelDiameterDisplay">--″</div>
+            </div>
+            <div class="metric" id="box_sensorModel" style="display:none;">
+                <div class="metric-title">Sensor Model</div>
+                <div class="metric-value" id="sensorModelDisplay">--</div>
+            </div>
+            <div class="metric" id="box_pinStatus" style="display:none;">
+                <div class="metric-title">PIN Status</div>
+                <div class="metric-value" id="pinStatusDisplay">--</div>
+            </div>
         </div>
     </div>
+
+	<!-- Bike Info Card -->
+	<details class="card" id="infoCard">
+		<summary><b>Bike Info</b></summary>
+		<div class="metric-grid" style="margin-top: 12px;">
+			<div class="metric" id="box_fwVersion" style="display:none;">
+				<div class="metric-title">FW Version</div>
+				<div class="metric-value" id="fwVersionDisplay">--</div>
+			</div>
+			<div class="metric" id="box_hmiInfo" style="display:none;">
+				<div class="metric-title">HMI Info</div>
+				<div class="metric-value metric-value-small" id="hmiInfoDisplay">--</div>
+			</div>
+			<div class="metric" id="box_controllerInfo" style="display:none;">
+				<div class="metric-title">Controller Info</div>
+				<div class="metric-value metric-value-small" id="controllerInfoDisplay">--</div>
+			</div>
+			<div class="metric" id="box_batteryInfo" style="display:none;">
+				<div class="metric-title">Battery Info</div>
+				<div class="metric-value metric-value-small" id="batteryInfoDisplay">--</div>
+			</div>
+		</div>
+	</details>
     
     <button id="lockScreenBtn">Lock Screen</button>
     
